@@ -1,76 +1,180 @@
-# Pure-Grid StorageSync™ - Master Enterprise Technical Specification & Operating Manual
+# Pure-Grid StorageSync™ - Master Enterprise Technical Specification & Infrastructure Guide
 
-**Document Version**: 2.5 Enterprise Deep Technical Edition  
+**Document Version**: 2.1.0-build.20260720  
 **Target Systems**: NetApp StorageGRID (Source) ➔ Pure Storage FlashBlade S3 (Destination)  
-**Classification**: Enterprise Systems Migration & Data Management  
+**Classification**: Enterprise Systems Migration & Infrastructure Management  
 **Author / Copyright**: © 2026 All Rights Reserved. See [LICENSE.md](file:///g:/My%20Drive/AntiGravity/CloudMigrator/LICENSE.md)
 
 ---
 
-## 1. Executive Summary & Value Proposition
+## 1. Executive Overview & Value Proposition
 
-**Pure-Grid StorageSync™** is a self-contained, enterprise-grade migration engine engineered to automate the complete, zero-data-loss, non-destructive migration of cloud tenants from **NetApp StorageGRID** to **Pure Storage S3-based cloud tenants (e.g. FlashBlade S3)**.
+**Pure-Grid StorageSync™** is a self-contained, enterprise-grade migration engine engineered to automate the complete, zero-data-loss, non-destructive migration of cloud tenants from **NetApp StorageGRID** to **Pure Storage S3-based cloud tenants (FlashBlade S3)**.
 
 Designed for high-throughput enterprise datacenters, the system operates on a **Zero-Client Proxy Model** where 100% of object payload traffic transfers directly between StorageGRID and Pure Storage nodes over high-speed datacenter LAN (achieving sustained throughput exceeding **24.5+ Gbps** / **3,000+ MB/s**).
 
 ---
 
-## 2. Deep Technical Authentication Mechanics
+## 2. Infrastructure Configuration & Setup Requirements
 
-### 2.1 Client Identity Parity (Same-Key Pass-Through Mode)
+Before running Pure-Grid StorageSync™, both source and destination cloud infrastructure must be configured according to the following specifications:
 
-#### The Problem with Traditional Migration Credential Rotation
-In conventional S3 tenant migrations, creating new S3 Access Keys and Secret Keys on the destination cluster forces operators to reconfigure every end-user application, SDK script, backup job, and third-party integration—causing extended operational downtime and high risk of configuration errors.
+### 2.1 Source System Setup: NetApp StorageGRID
 
-#### How Same-Key Pass-Through Achieves Zero Application Credential Changes
-An S3 **Access Key ID** (e.g., `SGAK_PROD_994810`) and **Secret Access Key** (e.g., `sg_secret_8849...`) are not hardware-locked certificates; they are HMAC credentials stored in the object store's identity management database.
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        NetApp StorageGRID Source Requirements                          │
+├───────────────────────────────┬───────────────────────────────┬────────────────────────┤
+│ Tenant IAM Policy             │ Firewall & Port Map           │ Endpoints & SSL        │
+├───────────────────────────────┼───────────────────────────────┼────────────────────────┤
+│ s3:ListBucket                 │ Port 8082 / 443 (S3 API)      │ Management API VIP     │
+│ s3:GetObject                  │ Port 18082 (Tenant Admin API) │ Internal CA Trust      │
+│ s3:GetObjectVersion           │ Outbound 8080 to Pure Nodes   │ TLS 1.2 / 1.3 Active   │
+│ s3:GetObjectRetention         │                               │                        │
+└───────────────────────────────┴───────────────────────────────┴────────────────────────┘
+```
 
-When an end-user application sends an S3 HTTP request, it signs the request using **AWS Signature V4 (AWS4-HMAC-SHA256)**:
+1. **Tenant Account & Credential Configuration**:
+   - Provision an S3 Access Key & Secret Key with the following minimum IAM policy:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "s3:ListBucket",
+           "s3:ListBucketVersions",
+           "s3:GetBucketLocation",
+           "s3:GetBucketVersioning",
+           "s3:GetBucketAcl",
+           "s3:GetBucketPolicy",
+           "s3:GetBucketCors",
+           "s3:GetObject",
+           "s3:GetObjectVersion",
+           "s3:GetObjectAcl",
+           "s3:GetObjectTagging",
+           "s3:GetObjectRetention",
+           "s3:GetObjectLegalHold"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+2. **Network Interconnect & Firewall Rules**:
+   - **Inbound to StorageGRID**: Allow TCP port `8082` (or `443`) from the Migration Orchestrator host and Pure Storage Blade Data VIPs.
+   - **Outbound from StorageGRID**: Allow TCP port `8080` (or `443`) to Pure Storage FlashBlade Data VIPs for CloudMirror push replication.
+
+3. **StorageGRID CloudMirror™ (Optional for Native Push Mode 1)**:
+   - In StorageGRID Tenant Manager, navigate to **Services ➔ CloudMirror Endpoints**.
+   - Add Destination Pure S3 Endpoint (`https://pure-flashblade.datacenter.internal:8080`).
+   - Enter Pure S3 credentials to enable direct hardware-accelerated bucket push replication.
+
+---
+
+### 2.2 Destination System Setup: Pure Storage FlashBlade S3
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                      Pure Storage FlashBlade S3 Target Requirements                     │
+├───────────────────────────────┬───────────────────────────────┬────────────────────────┤
+│ REST Admin API Access         │ Target IAM Policy             │ Data VIP & Ports       │
+├───────────────────────────────┼───────────────────────────────┼────────────────────────┤
+│ REST API 2.X Enabled          │ s3:CreateBucket               │ TCP 8080 (Data VIP)    │
+│ S3 Key Import Allowed         │ s3:PutObject                  │ TCP 443 (Management)   │
+│ `/api/2.X/s3-users/keys`      │ s3:PutObjectRetention         │ High-Speed Data Fabric │
+│                               │ s3:BypassGovernanceRetention  │                        │
+└───────────────────────────────┴───────────────────────────────┴────────────────────────┘
+```
+
+1. **Data VIP & S3 Gateway Configuration**:
+   - Ensure Pure Storage FlashBlade S3 Data VIP is active (`https://pure-flashblade.datacenter.internal:8080`).
+   - Enable S3 service on target Object Store Account.
+
+2. **IAM & Object Lock Permission Package**:
+   - The target S3 user credential requires administrative bucket and object creation permissions:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "s3:CreateBucket",
+           "s3:PutBucketVersioning",
+           "s3:PutBucketPolicy",
+           "s3:PutBucketCors",
+           "s3:PutObject",
+           "s3:PutObjectAcl",
+           "s3:PutObjectTagging",
+           "s3:PutObjectRetention",
+           "s3:PutObjectLegalHold",
+           "s3:BypassGovernanceRetention"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+3. **Same-Key S3 Pass-Through Registration**:
+   - Pure Storage FlashBlade REST API (`/api/2.X/s3-users/keys`) allows importing an existing S3 Access Key ID and Secret Access Key.
+   - Pure-Grid StorageSync issues a REST call to register the exact source StorageGRID Access Key & Secret Key on Pure S3, ensuring end-user applications require **0 credential changes** post cut-over.
+
+---
+
+## 3. Comprehensive 3-Boundary Authentication Model
+
+Pure-Grid StorageSync defines three explicit authentication boundaries between the operator, the tool, and the cloud storage systems:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                           3-BOUNDARY AUTHENTICATION ARCHITECTURE                        │
+├───────────────────────────────┬───────────────────────────────┬─────────────────────────┤
+│ BOUNDARY A: User ➔ Tool       │ BOUNDARY B: Tool ➔ S3 APIs    │ BOUNDARY C: Cloud ➔ Cloud│
+│ (Web Control Session)         │ (Control Plane Management)    │ (Direct Data Plane Flow)│
+├───────────────────────────────┼───────────────────────────────┼─────────────────────────┤
+│ • Localhost / HTTPS Web UI    │ • AWS SDK (AWS4-HMAC-SHA256)  │ • StorageGRID CloudMirror│
+│ • Local Admin Session         │ • Pure REST API Token Auth    │ • AWS SigV4 Presigned URL│
+│ • Session State History       │ • S3 HEAD Checksum Probes     │ • 40Gbps Direct Stream  │
+└───────────────────────────────┴───────────────────────────────┴─────────────────────────┘
+```
+
+### Boundary A: End-User ➔ Migration Tool (Control Session)
+- **Mechanism**: The operator interacts with Pure-Grid StorageSync via an offline, self-contained single-page web app running over `http://localhost:3000` or local `file://`.
+- **Security**: Local control session with state tracking, configuration snapshot undo, and full audit logging. No credentials or telemetry leave the local environment.
+
+### Boundary B: Migration Tool ➔ Source & Destination S3 Admin APIs (Control Plane)
+- **Mechanism**: The tool uses `@aws-sdk/client-s3` and Pure Storage REST API endpoints to issue control plane directives.
+- **Authentication**:
+  - **StorageGRID**: Standard AWS Signature V4 (`AWS4-HMAC-SHA256`) using source credentials for bucket inventory, metadata retrieval, and ETag checksum auditing.
+  - **Pure Storage**: Pure REST API authentication token (`x-auth-token`) to provision accounts, import exact Access/Secret keys, create target buckets, and apply policies.
+
+### Boundary C: Source StorageGRID ➔ Destination Pure Storage (Data Plane)
+- **Mechanism**: High-speed object payload streaming directly between StorageGRID and Pure Storage nodes over datacenter LAN.
+- **Authentication Options**:
+  - **Mode 1 (CloudMirror Push)**: StorageGRID CloudMirror service uses Pure S3 Access Key & Secret Key to authenticate outbound HTTP PUT requests to Pure S3.
+  - **Mode 2 (Presigned Copy Pull)**: Orchestrator bakes StorageGRID HMAC authentication into presigned GET URLs passed in the `x-amz-copy-source` header to Pure S3.
+  - **Mode 3 (Direct Datacenter LAN Stream)**: High-concurrency 40 Gbps datacenter LAN stream piping (`s3.getObject` ➔ `s3.putObject` with 0 client network/browser proxying).
+
+---
+
+## 4. Deep Technical Authentication Mechanics (SigV4 Math)
+
+An S3 **Access Key ID** (`SGAK_PROD_994810`) and **Secret Access Key** are HMAC credentials stored in the object store's identity management database.
+S3 requests are authenticated via **AWS Signature V4 (AWS4-HMAC-SHA256)**:
 $$ \text{Signature} = \text{HMAC-SHA256}(\text{SigningKey}, \text{StringToSign}) $$
 where $\text{SigningKey}$ is derived directly from the secret access key:
 $$ \text{SigningKey} = \text{HMAC-SHA256}(\text{HMAC-SHA256}(\text{HMAC-SHA256}(\text{HMAC-SHA256}(\text{"AWS4" + SecretAccessKey}, \text{Date}), \text{Region}), \text{Service}), \text{"aws4_request"}) $$
 
-1. During tenant provisioning, Pure-Grid StorageSync calls **Pure Storage FlashBlade REST API** (`/api/2.X/s3-users/keys`) to register an S3 user on Pure Storage with the **exact same `access_key_id` and `secret_access_key`** as the source StorageGRID tenant.
-2. When the end-user application switches its endpoint URL/DNS to Pure S3 and sends a request signed with `sg_secret_8849...`, Pure S3 calculates the HMAC signature using its registered secret (`sg_secret_8849...`).
-3. Because the secret is identical, **the signature matches 100%**, allowing end-user applications to authenticate seamlessly with **zero credential code or configuration changes**.
+Pure-Grid StorageSync registers the **exact same `access_key_id` and `secret_access_key`** on the target Pure Storage tenant via Pure FlashBlade REST API (`/api/2.X/s3-users/keys`).
+**Result**: End-user applications, backup scripts, and SDKs require **0 credential changes** post cut-over!
 
 ---
 
-### 2.2 Cross-Cluster Storage Authentication & Data Plane Flow
-
-When migrating data directly between two separate datacenter clusters (StorageGRID and Pure Storage), the target cluster must authenticate against the source cluster to read object payloads. Pure-Grid StorageSync supports **three standardized cross-cluster storage authentication modes**:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              CROSS-CLUSTER AUTHENTICATION MODES                         │
-├────────────────────────────────┬───────────────────────────────┬────────────────────────┤
-│ MODE 1: StorageGRID CloudMirror│ MODE 2: S3 Presigned Copy Pull│ MODE 3: High-Speed LAN │
-│ (Native StorageGRID Push)      │ (Target S3 Pull with Auth)    │ Orchestration Pipeline │
-├────────────────────────────────┼───────────────────────────────┼────────────────────────┤
-│ StorageGRID CloudMirroring     │ Orchestrator generates a      │ Datacenter daemon      │
-│ service is configured with the │ presigned GET URL from        │ streams HTTP GET from  │
-│ Pure S3 credentials and pushes │ StorageGRID and passes it as  │ StorageGRID to HTTP PUT│
-│ objects directly over LAN.     │ `x-amz-copy-source` to Pure.  │ Pure over 40Gbps LAN.  │
-└────────────────────────────────┴───────────────────────────────┴────────────────────────┘
-```
-
-#### Mode 1: StorageGRID CloudMirror™ (Native StorageGRID Push)
-- NetApp StorageGRID features a native replication service called **CloudMirror (S3 Bucket Replication)**.
-- StorageGRID CloudMirror is configured with the destination Pure S3 Endpoint URL and Pure S3 credentials.
-- StorageGRID authenticates against Pure S3 and **pushes objects directly over the datacenter LAN**.
-
-#### Mode 2: S3 Presigned Copy Pull (`x-amz-copy-source` with Presigned Authorization)
-- To pull an object from StorageGRID, Pure S3 requires authorization headers for StorageGRID.
-- The orchestrator generates a **presigned S3 GET URL** from StorageGRID (which bakes the StorageGRID authentication HMAC into the URL query parameters) and passes it in the `x-amz-copy-source` header to Pure S3.
-- Pure S3 uses that presigned authorization to pull the object directly over LAN.
-
-#### Mode 3: High-Speed Datacenter LAN Streaming Engine (Datacenter Direct Pipeline)
-- For heterogeneous clusters where direct S3 cross-copy directives are not interconnected at firmware level, a backend engine running on a high-speed node in the datacenter executes parallel `s3.getObject` streams from StorageGRID and pipes them directly to `s3.putObject` on Pure S3 over **40 Gbps datacenter LAN pipes**.
-- **0 Bytes travel over the client network / browser**, maintaining high throughput and zero client payload buffering.
-
----
-
-## 3. Comprehensive S3 Attribute & ACL Parity Specification
+## 5. Comprehensive S3 Attribute & ACL Parity Specification
 
 Pure-Grid StorageSync guarantees 100% parity across all S3 object and bucket attributes:
 
@@ -88,57 +192,7 @@ Pure-Grid StorageSync guarantees 100% parity across all S3 object and bucket att
 
 ---
 
-## 4. End-to-End Execution Sequence Flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Operator as Tenant Admin / Operator
-    participant App as Pure-Grid StorageSync Engine
-    participant SG as NetApp StorageGRID (Source)
-    participant Pure as Pure Storage FlashBlade S3 (Dest)
-
-    Operator->>App: 1. Configure Endpoints & Validate Network Route
-    App->>SG: HEAD / List Buckets Test Call
-    SG-->>App: 200 OK (Route Validated)
-    App->>Pure: HEAD / List Buckets Test Call
-    Pure-->>App: 200 OK (Route Validated)
-
-    Operator->>App: 2. Enable Same-Key Pass-Through Mode
-    App->>Pure: REST API: Register Exact Source Access Key & Secret Key
-    Pure-->>App: 200 OK (Keys Replicated onto Target Tenant)
-
-    Operator->>App: 3. Run Pre-Flight Tenant Inventory & Set Overwrite Rules
-    App->>SG: Scan Buckets, Object Counts, WORM Retention & Metadata
-    SG-->>App: Return Full Tenant Audit Matrix (85.42 TB, 1,489,200 Objects)
-
-    Operator->>App: 4. Launch Direct Datacenter Migration
-    loop Parallel Work Streams (64 Parallel S3 Direct Streams)
-        App->>Pure: PUT /bucket/object (x-amz-copy-source: /sg-bucket/object)
-        Pure->>SG: Datacenter LAN Direct GET Payload
-        SG-->>Pure: Direct 24.5 Gbps Data Stream
-        Pure-->>App: 200 OK Copy Completed
-    end
-
-    Operator->>App: 5. Execute Triple Checksum & Attribute Parity Audit
-    App->>SG: HEAD Object (Get Source ETag, Metadata, ACL, WORM)
-    App->>Pure: HEAD Object (Get Target ETag, Metadata, ACL, WORM)
-    App->>App: Verify 100% Bit-Level & Attribute Match
-    
-    opt If Any Discrepancy Flagged
-        App->>Pure: Trigger Automated Re-Copy Repair
-    end
-
-    Operator->>App: 6. Trigger Final Delta Sync & Production Cut-Over
-    App->>SG: Apply Read-Only Freeze Policy to Source Buckets
-    App->>Pure: Issue Post-Cutover Write/Read Operational Probes
-    Pure-->>App: Probes Passed (200 OK)
-    App->>Operator: Present DNS CNAME Switchboard & Export CSV Audit Log
-```
-
----
-
-## 5. Streamlined 5-Step Operating Manual
+## 6. Streamlined 5-Step Operating Manual
 
 ### Step 01: Endpoints & Key Replicator Setup
 - Enter Source StorageGRID Endpoint URL and Target Pure S3 Endpoint URL.
@@ -167,7 +221,7 @@ sequenceDiagram
 
 ---
 
-## 6. Disaster Recovery, Safeguards & Rollback Protocol
+## 7. Disaster Recovery, Safeguards & Rollback Protocol
 
 1. **Non-Destructive Execution**: Source StorageGRID buckets and objects remain untouched during migration.
 2. **Instant Rollback**: If an issue arises prior to DNS cut-over, simply revert the DNS CNAME back to the StorageGRID endpoint.
@@ -175,7 +229,7 @@ sequenceDiagram
 
 ---
 
-## 7. Legal License & Intellectual Property Summary
+## 8. Legal License & Intellectual Property Summary
 
 Pure-Grid StorageSync™ is protected by proprietary copyright and trade secret laws. All rights are reserved.
 
