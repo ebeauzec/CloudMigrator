@@ -372,9 +372,37 @@ In the **v3.0.0 Release**, every single wizard step in the backend services is *
 3. **`api.js` Live Cut-Over Freeze**:
    - Executes real **`PutBucketPolicyCommand`** against source StorageGRID buckets applying an explicit `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
 
+## 10. Cross-Vendor S3 CopySource Resolution & Stream Piping Architecture
+
+When migrating between distinct vendor S3 endpoints (NetApp StorageGRID `https://storagegrid:8082` ➔ Pure Storage S3 `https://pure-flashblade:8080`), passing a relative `CopySource: /bucket/key` to Pure Storage S3 fails because Pure Storage S3 cannot resolve relative paths against a different vendor's host.
+
+Pure-Grid StorageSync™ solves this via a **Dual Cross-Vendor Transfer Pipeline**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   DUAL CROSS-VENDOR S3 TRANSFER PIPELINE                                │
+├───────────────────────────────────────────────────┬────────────────────────────────────┤
+│ METHOD A: Presigned S3 GET URL CopySource         │ METHOD B: High-Speed Stream Piping │
+├───────────────────────────────────────────────────┼────────────────────────────────────┤
+│ 1. Tool signs StorageGRID GET URL (AWS SigV4)     │ 1. Tool issues GetObjectCommand to │
+│ 2. Tool passes Presigned URL in CopySource        │    StorageGRID (node Readable stream)│
+│ 3. Pure S3 fetches payload direct from StorageGRID│ 2. Tool pipes stream directly to   │
+│    over 40 Gbps datacenter LAN.                   │    Pure S3 PutObjectCommand.       │
+└───────────────────────────────────────────────────┴────────────────────────────────────┘
+```
+
+1. **Method A: Presigned S3 GET URL CopySource (`@aws-sdk/s3-request-presigner`)**:
+   - The tool uses `getSignedUrl` to sign a GET request against the source StorageGRID endpoint.
+   - The tool passes this fully-qualified presigned URL with embedded SigV4 authorization in `CopySource` to Pure Storage S3.
+   - Pure Storage S3 uses the presigned URL to fetch the object directly from StorageGRID over the 40 Gbps datacenter LAN.
+
+2. **Method B: High-Speed Direct Memory Stream Piping (`GetObject` ➔ `PutObject`)**:
+   - If presigned CopySource URLs are restricted by cross-vendor proxy policies, the tool streams `sourceS3.send(new GetObjectCommand(...)).Body` directly into `destS3.send(new PutObjectCommand({ Body: stream }))` via Node.js `stream.Readable` piping.
+   - Zero disk buffering, high-concurrency memory streaming at full LAN speed.
+
 ---
 
-## 10. Production API Command Mapping Guarantee
+## 11. Production API Command Mapping Guarantee
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 

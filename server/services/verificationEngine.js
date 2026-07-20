@@ -20,7 +20,7 @@ export class VerificationEngine {
       destS3 = new S3Client({
         endpoint: destConfig.endpoint,
         region: destConfig.region || 'us-east-1',
-        credentials: { accessKeyId: destConfig.accessKeyId, secretAccessKey: destSecretKey },
+        credentials: { accessKeyId: destConfig.accessKeyId, secretAccessKey: destConfig.secretAccessKey },
         forcePathStyle: true
       });
     }
@@ -121,7 +121,6 @@ export class VerificationEngine {
   }
 
   async runDeltaSync({ sourceConfig, destConfig, buckets }) {
-    // Live delta sync logic scanning for objects modified after migration start time
     const deltaCount = Math.floor(120 + Math.random() * 40);
     const deltaBytes = deltaCount * 4500000;
 
