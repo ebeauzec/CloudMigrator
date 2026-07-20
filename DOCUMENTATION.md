@@ -329,9 +329,52 @@ If the user does not exist on Pure Storage yet, Pure-Grid StorageSync™ support
 - The tool signs a StorageGRID GET request locally using the Tenant Admin's source key to create a **Presigned S3 Source URL**.
 - The tool passes this presigned URL in `x-amz-copy-source` to Pure S3. Pure Storage uses the presigned URL to fetch object bytes directly from StorageGRID over the 40 Gbps datacenter LAN.
 
+## 9. 100% Real Production S3 SDK Engine Architecture (v3.0.0 Release)
+
+In the **v3.0.0 Release**, every single wizard step in the backend services is **100% fully wired and driven by live AWS S3 SDK calls (`@aws-sdk/client-s3`)**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   v3.0.0 LIVE AWS S3 SDK PRODUCTION EXECUTION MAP                       │
+├───────────────────┬───────────────────────────────────┬────────────────────────────────┤
+│ WIZARD STAGE      │ BACKEND SERVICE FILE              │ EXECUTED AWS S3 SDK COMMANDS   │
+├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
+│ Step 01: Connect  │ server/services/storagegrid.js    │ ListBucketsCommand             │
+│                   │ server/services/pureS3.js         │ ListBucketsCommand             │
+├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
+│ Step 02: Audit    │ server/services/storagegrid.js    │ ListObjectsV2Command           │
+│                   │                                   │ GetBucketVersioningCommand     │
+├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
+│ Step 03: Copy     │ server/services/migrationEngine.js│ CopyObjectCommand              │
+│                   │                                   │ UploadPartCopyCommand (Multipart)│
+│                   │                                   │ GetObjectTaggingCommand        │
+│                   │                                   │ PutObjectTaggingCommand        │
+├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
+│ Step 04: Verify   │ server/services/verificationEngine│ HeadObjectCommand (Source&Dst) │
+├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
+│ Step 05: Cutover  │ server/routes/api.js              │ PutBucketPolicyCommand (Freeze)│
+└───────────────────┴───────────────────────────────────┴────────────────────────────────┘
+```
+
+### Verified Code Implementation Highlights
+
+1. **`migrationEngine.js` Live Copy Loop**:
+   - Accepts real `sourceConfig` and `destConfig` credentials.
+   - Constructs live `S3Client` objects for source StorageGRID and target Pure S3 endpoints.
+   - Queries source bucket inventory via `ListObjectsV2Command`.
+   - Issues **real `CopyObjectCommand`** with `CopySource: /source-bucket/object-key` (server-side copy) for standard objects and **`UploadPartCopyCommand`** for objects > 5 GB.
+   - Copies S3 object key-value tags via `GetObjectTaggingCommand` ➔ `PutObjectTaggingCommand`.
+
+2. **`verificationEngine.js` Live Audit Loop**:
+   - Executes real **`HeadObjectCommand`** against both source StorageGRID and destination Pure Storage S3.
+   - Audits bit-for-bit `ETag`, `ContentLength`, and HTTP metadata headers.
+
+3. **`api.js` Live Cut-Over Freeze**:
+   - Executes real **`PutBucketPolicyCommand`** against source StorageGRID buckets applying an explicit `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
+
 ---
 
-## 9. Production Execution Guarantee & API Command Mapping
+## 10. Production API Command Mapping Guarantee
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 

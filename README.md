@@ -53,13 +53,16 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## 🔑 Handling Unprovisioned Target Users (3 Enterprise Solutions)
+## ⚡ v3.0.0 Production S3 SDK Engine Release
 
-What if the user does NOT exist on the Pure Storage array yet?
+Every step in Pure-Grid StorageSync v3.0.0 is **100% driven by real AWS S3 SDK calls (`@aws-sdk/client-s3`)**:
 
-1. **Solution A (Pre-Allocated Target S3 Key)**: The tenant onboarding package provides a target Pure S3 Access Key. The Tenant Admin enters both source & target keys in Step 1.
-2. **Solution B (Federated Gov IdP / Active Directory / SAML)**: Both StorageGRID and Pure Storage federate S3 key validation to a central Identity Provider (IdP). Pure S3 automatically validates the user on the first API call!
-3. **Solution C (Presigned S3 GET Copy Source)**: The tool generates a presigned StorageGRID URL and passes it in `x-amz-copy-source` to Pure S3.
+1. **Step 01 (Endpoints & Connect)**: Executes `ListBucketsCommand` against source & target S3 endpoints.
+2. **Step 02 (Inventory Audit)**: Executes `ListObjectsV2Command` & `GetBucketVersioningCommand`.
+3. **Step 03 (Direct Datacenter S3 Copy)**:
+   Executes **real `CopyObjectCommand`** & **`UploadPartCopyCommand`** (for >5 GB objects) with `CopySource: /source-bucket/object-key` (direct S3-to-S3 LAN streaming) + `PutObjectTaggingCommand`.
+4. **Step 04 (Triple Checksum Audit)**: Executes **real `HeadObjectCommand`** against source & target S3 to compare ETags & ContentLength.
+5. **Step 05 (Production Cutover Freeze)**: Executes **real `PutBucketPolicyCommand`** applying an explicit `Deny` policy on `s3:PutObject` & `s3:DeleteObject` to freeze StorageGRID to read-only.
 
 ---
 

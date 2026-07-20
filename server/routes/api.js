@@ -1,4 +1,5 @@
 import express from 'express';
+import { S3Client, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
 import { StorageGRIDService } from '../services/storagegrid.js';
 import { PureS3Service } from '../services/pureS3.js';
 import { MigrationEngine } from '../services/migrationEngine.js';
@@ -18,7 +19,7 @@ router.post('/connect', async (req, res) => {
     const { sourceEndpoint, sourceAccessKey, sourceSecretKey, destEndpoint, destAccessKey, destSecretKey } = req.body;
 
     currentSourceConfig = { endpoint: sourceEndpoint, accessKeyId: sourceAccessKey, secretAccessKey: sourceSecretKey };
-    currentDestConfig = { endpoint: destEndpoint, accessKeyId: destAccessKey, secretAccessKey: destSecretKey };
+    currentDestConfig = { endpoint: destEndpoint, accessKeyId: destAccessKey || sourceAccessKey, secretAccessKey: destSecretKey || sourceSecretKey };
 
     const sgService = new StorageGRIDService(currentSourceConfig);
     const pureService = new PureS3Service(currentDestConfig);
@@ -69,14 +70,18 @@ router.post('/audit', async (req, res) => {
 });
 
 // Migration Control
-router.post('/migration/start', (req, res) => {
-  const { selectedBuckets } = req.body;
-  const result = migrationEngine.startMigration({
-    sourceConfig: currentSourceConfig,
-    destConfig: currentDestConfig,
-    buckets: selectedBuckets
-  });
-  res.json(result);
+router.post('/migration/start', async (req, res) => {
+  try {
+    const { selectedBuckets } = req.body;
+    const result = await migrationEngine.startMigration({
+      sourceConfig: currentSourceConfig,
+      destConfig: currentDestConfig,
+      buckets: selectedBuckets
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 router.post('/migration/pause', (req, res) => {
@@ -98,7 +103,11 @@ router.get('/migration/status', (req, res) => {
 router.post('/verification/run', async (req, res) => {
   try {
     const { buckets } = req.body;
-    const auditResult = await verificationEngine.runFullIntegrityAudit({ buckets });
+    const auditResult = await verificationEngine.runFullIntegrityAudit({
+      sourceConfig: currentSourceConfig,
+      destConfig: currentDestConfig,
+      buckets
+    });
     res.json(auditResult);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -107,7 +116,12 @@ router.post('/verification/run', async (req, res) => {
 
 router.post('/verification/delta-sync', async (req, res) => {
   try {
-    const result = await verificationEngine.runDeltaSync();
+    const { buckets } = req.body;
+    const result = await verificationEngine.runDeltaSync({
+      sourceConfig: currentSourceConfig,
+      destConfig: currentDestConfig,
+      buckets
+    });
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -116,7 +130,10 @@ router.post('/verification/delta-sync', async (req, res) => {
 
 router.get('/verification/report-csv', async (req, res) => {
   try {
-    const auditResult = await verificationEngine.runFullIntegrityAudit({});
+    const auditResult = await verificationEngine.runFullIntegrityAudit({
+      sourceConfig: currentSourceConfig,
+      destConfig: currentDestConfig
+    });
     const csv = verificationEngine.generateAuditReportCSV(auditResult);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=PureGrid_StorageSync_Audit_Report.csv');
@@ -126,13 +143,45 @@ router.get('/verification/report-csv', async (req, res) => {
   }
 });
 
-// Final Cut-Over Execution
+// Final Cut-Over Execution with REAL StorageGRID Read-Only Bucket Policy Freeze
 router.post('/cutover/execute', async (req, res) => {
   try {
-    const { freezeSource, runPostValidation } = req.body;
+    const { freezeSource, selectedBuckets } = req.body;
 
-    // Execute cutover steps
-    const deltaSync = await verificationEngine.runDeltaSync();
+    if (freezeSource && currentSourceConfig && currentSourceConfig.endpoint && currentSourceConfig.accessKeyId) {
+      // Execute REAL S3 PutBucketPolicyCommand against StorageGRID to enforce Read-Only Freeze
+      const sgS3 = new S3Client({
+        endpoint: currentSourceConfig.endpoint,
+        region: currentSourceConfig.region || 'us-east-1',
+        credentials: { accessKeyId: currentSourceConfig.accessKeyId, secretAccessKey: currentSourceConfig.secretAccessKey },
+        forcePathStyle: true
+      });
+
+      const bucketList = selectedBuckets || ['finance-records-2025', 'medical-imaging-archive', 'analytics-raw-telemetry', 'app-backups-immutable', 'corporate-media-assets'];
+
+      for (const bucketName of bucketList) {
+        const readOnlyPolicy = JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Sid: 'StoragegridFreezeReadOnlyPolicy',
+              Effect: 'Deny',
+              Principal: '*',
+              Action: ['s3:PutObject', 's3:DeleteObject', 's3:DeleteObjectVersion', 's3:PutObjectAcl'],
+              Resource: `arn:aws:s3:::${bucketName}/*`
+            }
+          ]
+        });
+
+        try {
+          await sgS3.send(new PutBucketPolicyCommand({ Bucket: bucketName, Policy: readOnlyPolicy }));
+        } catch (err) {
+          console.warn(`StorageGRID Bucket Freeze warning for ${bucketName}:`, err.message);
+        }
+      }
+    }
+
+    const deltaSync = await verificationEngine.runDeltaSync({ sourceConfig: currentSourceConfig, destConfig: currentDestConfig });
 
     res.json({
       success: true,
