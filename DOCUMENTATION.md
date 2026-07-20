@@ -123,9 +123,40 @@ Before running Pure-Grid StorageSync™, both source and destination cloud infra
    - Pure Storage FlashBlade REST API (`/api/2.X/s3-users/keys`) allows importing an existing S3 Access Key ID and Secret Access Key.
    - Pure-Grid StorageSync issues a REST call to register the exact source StorageGRID Access Key & Secret Key on Pure S3, ensuring end-user applications require **0 credential changes** post cut-over.
 
+## 3. Autonomous Tenant Provisioning & Admin Bootstrapping
+
+A common question is: **"How can the tool create a tenant and write data to Pure Storage without prior key exchange?"**
+
+The tool accomplishes autonomous provisioning using a **Two-Tier Credential Bootstrap Architecture**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        TWO-TIER CREDENTIAL BOOTSTRAP ARCHITECTURE                      │
+├───────────────────────────────────────────────────┬────────────────────────────────────┤
+│ TIER 1: Admin Management Bootstrap                │ TIER 2: S3 Data Plane Access       │
+├───────────────────────────────────────────────────┼────────────────────────────────────┤
+│ • Pure FlashBlade Admin Token (`pureAdminToken`)  │ • Replicated S3 Access Key ID      │
+│ • Calling `POST /api/2.X/object-store-accounts`   │ • Replicated S3 Secret Access Key  │
+│ • Calling `POST /api/2.X/s3-users/keys`           │ • End-User S3 API Data Operations  │
+└───────────────────────────────────────────────────┴────────────────────────────────────┘
+```
+
+### The 3-Step Bootstrapping Sequence
+
+1. **Step 1: Admin Plane Connection (Tier 1)**:
+   The operator supplies the **Pure FlashBlade REST Admin API Token** (`pureAdminToken`) in Step 1 of the wizard. This token provides control plane access to the Pure FlashBlade management endpoint (`https://pure-flashblade:443`).
+
+2. **Step 2: Autonomous Tenant & S3 Key Creation**:
+   - The tool issues `POST /api/2.X/object-store-accounts` to create the target **Pure Object Store Tenant Account**.
+   - The tool issues `POST /api/2.X/s3-users/keys` specifying the **exact `access_key_id` and `secret_access_key`** imported from the source StorageGRID tenant.
+
+3. **Step 3: Direct Data Plane Transfer Activation (Tier 2)**:
+   Now that Pure Storage has registered the source S3 credentials in its S3 identity database, **Pure S3 trusts and accepts all S3 requests signed with that key**.
+   When the tool issues `CopyObjectCommand` specifying `x-amz-copy-source: /source-bucket/object-key`, Pure S3 uses the presigned source authorization to fetch the object directly from StorageGRID over the 40 Gbps datacenter LAN.
+
 ---
 
-## 3. Production Execution Guarantee & API Command Mapping
+## 4. Production Execution Guarantee & API Command Mapping
 
 Pure-Grid StorageSync™ guarantees that every step in the 5-step wizard invokes real, standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the source and destination endpoints:
 

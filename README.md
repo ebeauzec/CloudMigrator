@@ -39,6 +39,20 @@ Open [index.html](file:///g:/My%20Drive/AntiGravity/CloudMigrator/index.html) di
 - **IAM Permissions**: `s3:CreateBucket`, `s3:PutObject`, `s3:PutObjectTagging`, `s3:PutObjectRetention`, `s3:BypassGovernanceRetention`.
 - **REST API Key Import**: `/api/2.X/s3-users/keys` enabled for Same-Key Pass-Through registration.
 
+## 🔑 Two-Tier Credential Bootstrap Architecture
+
+**How does the tool create a tenant and write to Pure Storage without prior key exchange?**
+
+The tool uses a **Two-Tier Credential Bootstrap Architecture**:
+
+1. **Tier 1 (Admin Management Bootstrap)**:
+   The operator inputs the **Pure FlashBlade REST Admin API Token** (`pureAdminToken`) in Step 1.
+   The tool uses this token to call Pure Management REST API:
+   - `POST /api/2.X/object-store-accounts` ➔ Autonomously creates the **Pure Tenant Account**.
+   - `POST /api/2.X/s3-users/keys` ➔ Imports the **exact StorageGRID S3 Access & Secret Key** onto Pure Storage.
+2. **Tier 2 (S3 Data Plane Access)**:
+   Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
+
 ---
 
 ## ⚙️ Production API Command Mapping Guarantee
