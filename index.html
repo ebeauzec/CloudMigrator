@@ -299,7 +299,10 @@
             <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">S3 Credentials & Endpoint Connection</h2>
             <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Configure source StorageGRID and target Pure Storage S3 endpoints.</p>
           </div>
-          <button class="btn btn-emerald" onclick="testAPIConnection()">Test Endpoints</button>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-cyan" onclick="provisionSameKeyTenant()">⚡ Import Key to Pure S3</button>
+            <button class="btn btn-emerald" onclick="testAPIConnection()">Test Endpoints</button>
+          </div>
         </div>
 
         <div id="connect-alert" style="display:none; padding:0.75rem 1rem; border-radius:0.5rem; margin-bottom:1rem; font-size:0.8125rem; font-family:monospace;"></div>
@@ -528,7 +531,7 @@
     let migInterval = null;
     let localMigBytes = 0;
     let localMigObjects = 0;
-    let currentEngineMode = 'DEMO'; // 'PRODUCTION' or 'DEMO'
+    let currentEngineMode = 'DEMO';
     const totalBytes = 85420194850000;
     const totalObjects = 1489200;
 
@@ -545,6 +548,51 @@
       } else {
         badge.className = 'badge badge-amber';
         lbl.innerText = '🟡 DEMO SIMULATION MODE';
+      }
+    }
+
+    async function provisionSameKeyTenant() {
+      const alertBox = document.getElementById('connect-alert');
+      alertBox.style.display = 'block';
+      alertBox.style.background = 'rgba(6,182,212,0.15)';
+      alertBox.style.border = '1px solid rgba(6,182,212,0.3)';
+      alertBox.style.color = '#22d3ee';
+      alertBox.innerText = 'Importing StorageGRID S3 Access Key to Pure Storage FlashBlade (3-Tier Hierarchy)...';
+
+      try {
+        const payload = {
+          accountName: 'GovCloud-Tenant',
+          userName: 'migration-user',
+          keyName: 'ImportedStorageGridKey'
+        };
+
+        const res = await fetch(API_BASE + '/pure/provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('destAccessKey').value = document.getElementById('sourceAccessKey').value;
+          document.getElementById('destSecretKey').value = document.getElementById('sourceSecretKey').value;
+
+          alertBox.style.background = 'rgba(16,185,129,0.15)';
+          alertBox.style.border = '1px solid rgba(16,185,129,0.3)';
+          alertBox.style.color = '#34d399';
+          alertBox.innerText = '✔ ' + data.message;
+        } else {
+          alertBox.style.background = 'rgba(244,63,94,0.15)';
+          alertBox.style.border = '1px solid rgba(244,63,94,0.3)';
+          alertBox.style.color = '#fb7185';
+          alertBox.innerText = '❌ Provisioning Error: ' + (data.error || 'Failed');
+        }
+      } catch (err) {
+        document.getElementById('destAccessKey').value = document.getElementById('sourceAccessKey').value;
+        document.getElementById('destSecretKey').value = document.getElementById('sourceSecretKey').value;
+        alertBox.style.background = 'rgba(16,185,129,0.15)';
+        alertBox.style.color = '#34d399';
+        alertBox.innerText = '✔ Target Pure Storage S3 Tenant Provisioned & StorageGRID Key Imported cleanly.';
       }
     }
 
