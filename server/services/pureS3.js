@@ -45,8 +45,19 @@ export class PureS3Service {
     }
   }
 
-  // Provision Object Store Tenant Account, User, and Import S3 Access Key Pair via 3-Tier Pure FlashBlade REST 2.11 API
-  async provisionNewCredentials({ accountName = 'GovCloud-Tenant', userName = 'migration-user', keyName = 'ImportedStorageGridKey', sourceAccessKey, sourceSecretKey }) {
+  /**
+   * Streamlined 3-Tier Idempotent Provisioning Engine for Pure Storage FlashBlade REST 2.11 API
+   * Tier 1: Object Store Account (POST /api/2.11/object-store-accounts)
+   * Tier 2: Object Store User (POST /api/2.11/object-store-users)
+   * Tier 3: Same-Key S3 Key Import (POST /api/2.11/s3-users/keys)
+   */
+  async provisionNewCredentials({ 
+    accountName = 'GovCloud-Tenant', 
+    userName = 'migration-user', 
+    keyName = 'ImportedStorageGridKey', 
+    sourceAccessKey, 
+    sourceSecretKey 
+  }) {
     const targetAccessKey = sourceAccessKey || this.accessKeyId;
     const targetSecretKey = sourceSecretKey || this.secretAccessKey;
 
@@ -55,7 +66,7 @@ export class PureS3Service {
         const pureRestEndpoint = this.endpoint.replace(':8080', ':443').replace(/\/$/, '');
         const fullUserName = `${accountName}/${userName}`;
         
-        // 1. TIER 1: Create Object Store Account (POST /api/2.11/object-store-accounts)
+        // --- TIER 1: Object Store Account ---
         const acctRes = await fetch(`${pureRestEndpoint}/api/2.11/object-store-accounts`, {
           method: 'POST',
           headers: {
@@ -67,10 +78,10 @@ export class PureS3Service {
 
         if (!acctRes.ok && acctRes.status !== 409) {
           const errText = await acctRes.text();
-          throw new Error(`Pure REST Account creation failed (${acctRes.status}): ${errText}`);
+          throw new Error(`Tier 1 Account Creation Failed (${acctRes.status}): ${errText}`);
         }
 
-        // 2. TIER 2: Create Object Store User (POST /api/2.11/object-store-users)
+        // --- TIER 2: Object Store User ---
         const userRes = await fetch(`${pureRestEndpoint}/api/2.11/object-store-users`, {
           method: 'POST',
           headers: {
@@ -82,10 +93,10 @@ export class PureS3Service {
 
         if (!userRes.ok && userRes.status !== 409) {
           const errText = await userRes.text();
-          throw new Error(`Pure REST User creation failed (${userRes.status}): ${errText}`);
+          throw new Error(`Tier 2 User Creation Failed (${userRes.status}): ${errText}`);
         }
 
-        // 3. TIER 3: Import S3 Access Key & Secret Key (POST /api/2.11/s3-users/keys)
+        // --- TIER 3: Same-Key Access/Secret Key Import ---
         const keyRes = await fetch(`${pureRestEndpoint}/api/2.11/s3-users/keys`, {
           method: 'POST',
           headers: {
@@ -102,21 +113,23 @@ export class PureS3Service {
 
         if (!keyRes.ok && keyRes.status !== 409) {
           const errText = await keyRes.text();
-          throw new Error(`Pure REST Key import failed (${keyRes.status}): ${errText}`);
+          throw new Error(`Tier 3 Key Import Failed (${keyRes.status}): ${errText}`);
         }
 
         return {
           success: true,
-          accountName,
-          userName: fullUserName,
+          provisioningResults: {
+            account: { name: accountName, status: acctRes.status === 409 ? 'EXISTING' : 'CREATED' },
+            user: { name: fullUserName, status: userRes.status === 409 ? 'EXISTING' : 'CREATED' },
+            accessKey: { id: targetAccessKey, status: keyRes.status === 409 ? 'EXISTING' : 'IMPORTED_SUCCESSFULLY' }
+          },
           credentials: {
             accessKeyId: targetAccessKey,
             secretAccessKey: targetSecretKey,
-            createdDate: new Date().toISOString(),
             sameKeyPassThrough: true,
             status: 'Active'
           },
-          message: `Successfully provisioned 3-tier FlashBlade hierarchy (${accountName} -> ${fullUserName}) and imported StorageGRID S3 Access Key.`
+          message: `Streamlined 3-Tier FlashBlade Provisioning Complete: Account '${accountName}', User '${fullUserName}', Key '${targetAccessKey}' imported.`
         };
 
       } catch (err) {
@@ -130,18 +143,18 @@ export class PureS3Service {
 
     return {
       success: true,
-      accountName,
-      userName: `${accountName}/${userName}`,
-      keyName,
-      credentials: {
-        accessKeyId: targetAccessKey || ('PURE_' + Math.random().toString(36).substring(2, 12).toUpperCase()),
-        secretAccessKey: targetSecretKey || ('sec_' + Array.from({length: 32}, () => Math.floor(Math.random() * 36).toString(36)).join('')),
-        createdDate: new Date().toISOString(),
-        sameKeyPassThrough: true,
-        status: 'Active',
-        permissions: ['s3:FullAccess', 's3:CreateBucket', 's3:PutObject', 's3:PutObjectTagging', 's3:PutObjectRetention', 's3:BypassGovernanceRetention']
+      provisioningResults: {
+        account: { name: accountName, status: 'CONFIGURED' },
+        user: { name: `${accountName}/${userName}`, status: 'CONFIGURED' },
+        accessKey: { id: targetAccessKey, status: 'SAME_KEY_PASS_THROUGH' }
       },
-      message: 'Pure S3 Target Credentials configured for Same-Key Pass-Through.'
+      credentials: {
+        accessKeyId: targetAccessKey,
+        secretAccessKey: targetSecretKey,
+        sameKeyPassThrough: true,
+        status: 'Active'
+      },
+      message: `Target S3 Credentials set for Same-Key Pass-Through ('${targetAccessKey}').`
     };
   }
 
