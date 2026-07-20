@@ -53,14 +53,16 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## ⚡ Dual Cross-Vendor S3 Transfer Engine
+## ⚡ S3 SDK Execution Engine
 
-To copy objects across distinct vendor endpoints (StorageGRID `https://storagegrid:8082` ➔ Pure Storage S3 `https://pure-flashblade:8080`):
+Every step in Pure-Grid StorageSync v3.0.0 is driven by AWS S3 SDK calls (`@aws-sdk/client-s3`):
 
-1. **Method A (Presigned S3 GET CopySource)**:
-   Uses `@aws-sdk/s3-request-presigner` (`getSignedUrl`) to generate a fully-authenticated StorageGRID GET URL and passes it in `CopySource` to Pure S3 over the 40 Gbps datacenter LAN.
-2. **Method B (High-Speed Stream Piping)**:
-   Pipes `sourceS3.send(new GetObjectCommand(...)).Body` directly to `destS3.send(new PutObjectCommand({ Body: stream }))` via Node.js memory stream piping. Zero disk buffering!
+1. **Step 01 (Endpoints & Connect)**: Executes `ListBucketsCommand` against source & target S3 endpoints.
+2. **Step 02 (Inventory Audit)**: Executes `ListObjectsV2Command` & `GetBucketVersioningCommand`.
+3. **Step 03 (Direct Datacenter S3 Copy)**:
+   Executes `CopyObjectCommand` & `UploadPartCopyCommand` (for >5 GB objects) with presigned or direct S3-to-S3 LAN streaming + `PutObjectTaggingCommand`.
+4. **Step 04 (Triple Checksum Audit)**: Executes `HeadObjectCommand` against source & target S3 to compare ETags & ContentLength.
+5. **Step 05 (Cutover Freeze)**: Executes `PutBucketPolicyCommand` applying a `Deny` policy on `s3:PutObject` & `s3:DeleteObject` to freeze StorageGRID to read-only.
 
 ---
 

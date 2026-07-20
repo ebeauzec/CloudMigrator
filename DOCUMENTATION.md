@@ -329,13 +329,13 @@ If the user does not exist on Pure Storage yet, Pure-Grid StorageSync™ support
 - The tool signs a StorageGRID GET request locally using the Tenant Admin's source key to create a **Presigned S3 Source URL**.
 - The tool passes this presigned URL in `x-amz-copy-source` to Pure S3. Pure Storage uses the presigned URL to fetch object bytes directly from StorageGRID over the 40 Gbps datacenter LAN.
 
-## 9. 100% Real Production S3 SDK Engine Architecture (v3.0.0 Release)
+## 9. S3 SDK Execution Engine Architecture
 
-In the **v3.0.0 Release**, every single wizard step in the backend services is **100% fully wired and driven by live AWS S3 SDK calls (`@aws-sdk/client-s3`)**:
+Every wizard step in the backend services invokes AWS S3 SDK commands (`@aws-sdk/client-s3`):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                   v3.0.0 LIVE AWS S3 SDK PRODUCTION EXECUTION MAP                       │
+│                         AWS S3 SDK EXECUTION MAP                                       │
 ├───────────────────┬───────────────────────────────────┬────────────────────────────────┤
 │ WIZARD STAGE      │ BACKEND SERVICE FILE              │ EXECUTED AWS S3 SDK COMMANDS   │
 ├───────────────────┼───────────────────────────────────┼────────────────────────────────┤
@@ -356,21 +356,21 @@ In the **v3.0.0 Release**, every single wizard step in the backend services is *
 └───────────────────┴───────────────────────────────────┴────────────────────────────────┘
 ```
 
-### Verified Code Implementation Highlights
+### Technical Implementation
 
-1. **`migrationEngine.js` Live Copy Loop**:
-   - Accepts real `sourceConfig` and `destConfig` credentials.
-   - Constructs live `S3Client` objects for source StorageGRID and target Pure S3 endpoints.
+1. **`migrationEngine.js` Copy Loop**:
+   - Accepts `sourceConfig` and `destConfig` credentials.
+   - Instantiates `S3Client` objects for source StorageGRID and target Pure Storage S3 endpoints.
    - Queries source bucket inventory via `ListObjectsV2Command`.
-   - Issues **real `CopyObjectCommand`** with `CopySource: /source-bucket/object-key` (server-side copy) for standard objects and **`UploadPartCopyCommand`** for objects > 5 GB.
-   - Copies S3 object key-value tags via `GetObjectTaggingCommand` ➔ `PutObjectTaggingCommand`.
+   - Issues `CopyObjectCommand` with `CopySource: /source-bucket/object-key` (server-side copy) for standard objects and `UploadPartCopyCommand` for objects > 5 GB.
+   - Replicates S3 object key-value tags via `GetObjectTaggingCommand` ➔ `PutObjectTaggingCommand`.
 
-2. **`verificationEngine.js` Live Audit Loop**:
-   - Executes real **`HeadObjectCommand`** against both source StorageGRID and destination Pure Storage S3.
-   - Audits bit-for-bit `ETag`, `ContentLength`, and HTTP metadata headers.
+2. **`verificationEngine.js` Audit Loop**:
+   - Executes `HeadObjectCommand` against both source StorageGRID and destination Pure Storage S3.
+   - Audits `ETag`, `ContentLength`, and HTTP metadata headers.
 
-3. **`api.js` Live Cut-Over Freeze**:
-   - Executes real **`PutBucketPolicyCommand`** against source StorageGRID buckets applying an explicit `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
+3. **`api.js` Cut-Over Freeze**:
+   - Executes `PutBucketPolicyCommand` against source StorageGRID buckets applying a `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
 
 ## 10. Cross-Vendor S3 CopySource Resolution & Stream Piping Architecture
 
