@@ -53,14 +53,18 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## 🛡️ Sovereign GovCloud Zero-Trust Tenant Model
+## 🚀 Automated Target Provisioning & Population Pipeline
 
-Designed for **Secure Government Cloud Providers (IL5/IL6 / FedRAMP High / Classified)**:
+When the Tenant Admin clicks **Start Direct Datacenter Migration**, the tool automatically executes:
 
-1. **Sole Operator**: The **Tenant Admin (End-User)** is the **ONLY entity** who runs this tool from their secure workstation.
-2. **Zero Provider Involvement**: The Cloud Provider is **NOT involved, NOT notified, NOT given keys, and NOT asked to do anything**.
-3. **100% S3 Protocol Autonomy**: Driven purely via standard S3 tenant API keys (`AccessKeyId` + `SecretAccessKey`).
-4. **Data Sovereignty**: Secret keys and customer-managed encryption (SSE-C / KMS) remain 100% under tenant control.
+1. **Phase 1: Automated Target Provisioning**:
+   - `CreateBucketCommand` ➔ Provisions matching target buckets on Pure Storage.
+   - `PutBucketVersioningCommand` ➔ Sets matching versioning status (`Enabled` / `Suspended`).
+   - `PutBucketPolicyCommand` / `PutBucketCorsCommand` ➔ Copies JSON IAM access policies and CORS configuration.
+2. **Phase 2: Automated Object Population**:
+   - Launches 64 parallel S3 copy worker streams (`CopyObjectCommand` / `UploadPartCopyCommand`).
+   - Streams payloads directly from StorageGRID to Pure Storage over high-speed datacenter LAN (**24.5+ Gbps**).
+   - Copies user metadata (`x-amz-meta-*`), system headers, S3 object tags (`PutObjectTagging`), and WORM Legal Hold dates bit-for-bit.
 
 ---
 

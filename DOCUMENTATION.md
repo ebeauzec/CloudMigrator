@@ -238,9 +238,39 @@ In secure government cloud environments (FedRAMP High, IL5/IL6, Sovereign GovClo
    - Secret keys are processed strictly in local browser memory or local executable process space on the Tenant Admin's machine.
    - Key material is never transmitted to the cloud provider, never logged to disk, and never exposed outside the tenant admin's isolated context.
 
+## 6. Automated Target Provisioning & Population Pipeline
+
+When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               AUTOMATED TARGET PROVISIONING & DATA POPULATION PIPELINE                 │
+├───────────────────────────────────────────────────┬────────────────────────────────────┤
+│ PHASE 1: Automated Target Structure Provisioning  │ PHASE 2: Direct Object Data Stream │
+├───────────────────────────────────────────────────┼────────────────────────────────────┤
+│ • Auto-creates matching S3 Buckets on Pure        │ • Streams Object Payloads (24.5G)  │
+│ • Applies Bucket Versioning (Status: Enabled)     │ • Preserves User Metadata headers │
+│ • Replicates JSON IAM Bucket Policies & CORS      │ • Copies Object Tags & Key-Values │
+│ • Configures Object Lock WORM Retention Policies  │ • Replicates WORM Legal Hold Dates │
+└───────────────────────────────────────────────────┴────────────────────────────────────┘
+```
+
+### Phase 1: Automated Target Bucket & Policy Provisioning
+Before copying objects, the tool queries the source StorageGRID tenant and automatically issues standard S3 commands to Pure Storage S3:
+1. `CreateBucketCommand` ➔ Provisions matching target buckets on Pure S3.
+2. `PutBucketVersioningCommand` ➔ Applies matching bucket versioning (`Enabled` / `Suspended`).
+3. `PutBucketPolicyCommand` / `PutBucketCorsCommand` ➔ Applies matching JSON access policies and CORS configuration.
+4. `PutObjectRetentionCommand` ➔ Sets Object Lock WORM retention rules on the target bucket container.
+
+### Phase 2: Automated Object Population & Attribute Transfer
+Immediately following structure provisioning, the tool automatically launches 64 parallel S3 copy worker streams:
+1. Issues `CopyObjectCommand` / `UploadPartCopyCommand` with `MetadataDirective: 'COPY'` to stream object payloads directly from StorageGRID to Pure S3 over high-speed datacenter LAN.
+2. Preserves user-defined metadata (`x-amz-meta-*`), system headers, and object key-value tags (`PutObjectTagging`).
+3. Verifies bit-level ETag MD5 hashes and triggers 1-click auto-repair if any mismatch is detected.
+
 ---
 
-## 6. Production Execution Guarantee & API Command Mapping
+## 7. Production Execution Guarantee & API Command Mapping
 
 Pure-Grid StorageSync™ guarantees that every step in the 5-step wizard invokes real, standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the source and destination endpoints:
 
