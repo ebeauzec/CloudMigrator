@@ -45,23 +45,24 @@ export class PureS3Service {
     }
   }
 
-  // Provision Object Store Tenant Account & Import Exact Same S3 Access/Secret Key via Pure FlashBlade REST 2.11 API
-  async provisionNewCredentials({ accountName, userName, keyName, sourceAccessKey, sourceSecretKey }) {
+  // Provision Object Store Tenant Account, User, and Import S3 Access Key Pair via 3-Tier Pure FlashBlade REST 2.11 API
+  async provisionNewCredentials({ accountName = 'GovCloud-Tenant', userName = 'migration-user', keyName = 'ImportedStorageGridKey', sourceAccessKey, sourceSecretKey }) {
     const targetAccessKey = sourceAccessKey || this.accessKeyId;
     const targetSecretKey = sourceSecretKey || this.secretAccessKey;
 
     if (this.pureAdminToken && this.endpoint) {
       try {
         const pureRestEndpoint = this.endpoint.replace(':8080', ':443').replace(/\/$/, '');
+        const fullUserName = `${accountName}/${userName}`;
         
-        // 1. Create Object Store Account via Pure REST API POST /api/2.11/object-store-accounts
+        // 1. TIER 1: Create Object Store Account (POST /api/2.11/object-store-accounts)
         const acctRes = await fetch(`${pureRestEndpoint}/api/2.11/object-store-accounts`, {
           method: 'POST',
           headers: {
             'x-auth-token': this.pureAdminToken,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ name: accountName || 'GovCloud-Tenant' })
+          body: JSON.stringify({ name: accountName })
         });
 
         if (!acctRes.ok && acctRes.status !== 409) {
@@ -69,7 +70,22 @@ export class PureS3Service {
           throw new Error(`Pure REST Account creation failed (${acctRes.status}): ${errText}`);
         }
 
-        // 2. Import Exact Source StorageGRID S3 Access/Secret Key Pair via Pure REST API POST /api/2.11/s3-users/keys
+        // 2. TIER 2: Create Object Store User (POST /api/2.11/object-store-users)
+        const userRes = await fetch(`${pureRestEndpoint}/api/2.11/object-store-users`, {
+          method: 'POST',
+          headers: {
+            'x-auth-token': this.pureAdminToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: fullUserName })
+        });
+
+        if (!userRes.ok && userRes.status !== 409) {
+          const errText = await userRes.text();
+          throw new Error(`Pure REST User creation failed (${userRes.status}): ${errText}`);
+        }
+
+        // 3. TIER 3: Import S3 Access Key & Secret Key (POST /api/2.11/s3-users/keys)
         const keyRes = await fetch(`${pureRestEndpoint}/api/2.11/s3-users/keys`, {
           method: 'POST',
           headers: {
@@ -77,24 +93,22 @@ export class PureS3Service {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            name: keyName || 'ImportedStorageGridKey',
-            user: { name: userName || 'migration-user' },
+            name: keyName,
+            user: { name: fullUserName },
             access_key_id: targetAccessKey,
             secret_access_key: targetSecretKey
           })
         });
 
-        if (!keyRes.ok) {
+        if (!keyRes.ok && keyRes.status !== 409) {
           const errText = await keyRes.text();
-          throw new Error(`Pure REST Key registration failed (${keyRes.status}): ${errText}`);
+          throw new Error(`Pure REST Key import failed (${keyRes.status}): ${errText}`);
         }
-
-        const keyData = await keyRes.json();
 
         return {
           success: true,
-          accountName: accountName || 'GovCloud-Tenant',
-          userName: userName || 'migration-user',
+          accountName,
+          userName: fullUserName,
           credentials: {
             accessKeyId: targetAccessKey,
             secretAccessKey: targetSecretKey,
@@ -102,7 +116,7 @@ export class PureS3Service {
             sameKeyPassThrough: true,
             status: 'Active'
           },
-          message: 'Successfully registered exact StorageGRID S3 Access Key & Secret Key on Pure Storage FlashBlade.'
+          message: `Successfully provisioned 3-tier FlashBlade hierarchy (${accountName} -> ${fullUserName}) and imported StorageGRID S3 Access Key.`
         };
 
       } catch (err) {
@@ -116,9 +130,9 @@ export class PureS3Service {
 
     return {
       success: true,
-      accountName: accountName || 'Pure-Cloud-Tenant-Primary',
-      userName: userName || 'migration-automation-user',
-      keyName: keyName || 'Migration-Auto-Key-' + Date.now().toString().slice(-4),
+      accountName,
+      userName: `${accountName}/${userName}`,
+      keyName,
       credentials: {
         accessKeyId: targetAccessKey || ('PURE_' + Math.random().toString(36).substring(2, 12).toUpperCase()),
         secretAccessKey: targetSecretKey || ('sec_' + Array.from({length: 32}, () => Math.floor(Math.random() * 36).toString(36)).join('')),

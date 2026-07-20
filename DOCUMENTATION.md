@@ -401,7 +401,36 @@ Cross-vendor transfers between NetApp StorageGRID and Pure Storage FlashBlade ex
    - Replicates object tags via `GetObjectTaggingCommand` ➔ `PutObjectTaggingCommand`.
    - Replicates Object Lock retention periods via `GetObjectRetentionCommand` ➔ `PutObjectRetentionCommand` (with `BypassGovernanceRetention: true`).
 
-## 11. Federated S3 Identity Architecture (OIDC / STS / Active Directory)
+## 11. 3-Tier Pure Storage FlashBlade REST Provisioning Architecture
+
+Pure Storage FlashBlade REST 2.11 API operates on a strict **3-Tier Object Hierarchy**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               PURE FLASHBLADE 3-TIER OBJECT REST PROVISIONING HIERARCHY                │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ TIER 1: Object Store Account    │ POST /api/2.11/object-store-accounts                  │
+│                                 │ e.g. "GovCloud-Tenant"                               │
+├─────────────────────────────────┼──────────────────────────────────────────────────────┤
+│ TIER 2: Object Store User       │ POST /api/2.11/object-store-users                    │
+│                                 │ e.g. "GovCloud-Tenant/migration-user"                │
+├─────────────────────────────────┼──────────────────────────────────────────────────────┤
+│ TIER 3: S3 Access Key Pair      │ POST /api/2.11/s3-users/keys                         │
+│                                 │ Imports exact StorageGRID AccessKey & SecretKey      │
+└─────────────────────────────────┴──────────────────────────────────────────────────────┘
+```
+
+1. **Tier 1 (Object Store Account)**:
+   - Issues `POST /api/2.11/object-store-accounts` to create the tenant container (`GovCloud-Tenant`).
+2. **Tier 2 (Object Store User)**:
+   - Issues `POST /api/2.11/object-store-users` to provision the Object Store User (`GovCloud-Tenant/migration-user`).
+3. **Tier 3 (Same-Key S3 Import)**:
+   - Issues `POST /api/2.11/s3-users/keys` passing `user: { name: "GovCloud-Tenant/migration-user" }`, `access_key_id`, and `secret_access_key`.
+   - Re-registers the exact StorageGRID credentials onto FlashBlade for 0 application code changes post cutover.
+
+---
+
+## 12. Federated S3 Identity Architecture (OIDC / STS / Active Directory)
 
 A fundamental question in cross-cluster migrations is: **"Would Identity Federation resolve static Access & Secret Key mismatches between StorageGRID and Pure Storage?"**
 
