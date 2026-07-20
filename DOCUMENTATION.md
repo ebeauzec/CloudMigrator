@@ -177,9 +177,14 @@ Pure-Grid StorageSync™ solves this through a **Delegated Self-Service Multi-Te
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Multi-Tenant Safeguards
+### Key Multi-Tenant Safeguards & Key Privacy Guarantees
 
-1. **Zero Global Admin Access Required**:
+1. **Zero-Trust Key Privacy Rule (Storage Admins NEVER handle Tenant Secret Keys)**:
+   - **Infrastructure Storage Admins** control hardware & grid networking, but **NEVER have access to tenant secret keys**.
+   - **Tenant Managers** input their private S3 Access Keys & Secret Keys **strictly locally** inside their self-contained execution instance (`index.html` or local desktop runner).
+   - The tenant secret key is never logged to disk, never sent to storage admins, and never exposed outside the tenant's execution context.
+
+2. **Zero Global Admin Access Required**:
    - Tenant Managers **do not need** StorageGRID Grid Admin or Pure FlashBlade Array Admin tokens.
    - They operate strictly using their own **Tenant S3 Access & Secret Keys** (`s3:ListBucket`, `s3:GetObject`, `s3:PutObject`).
 
