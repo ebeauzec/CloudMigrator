@@ -266,9 +266,38 @@ A critical scenario is when **no tenant currently exists on Pure Storage**, and 
    Target buckets, versioning, CORS policies, WORM rules, and object payload population start immediately over the 24.5+ Gbps datacenter LAN.
    **Result**: The Tenant Admin achieves full migration with zero prior setup on Pure Storage and zero application key changes post cut-over!
 
+## 7. Tool-Direct Authentication vs Storage-Direct Payload Transfer Sequence
+
+A common point of confusion is: **"Does CloudMirror authenticate the user, or does the tool authenticate directly with Pure S3?"**
+
+Here is the exact technical sequence:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               TOOL-DIRECT AUTHENTICATION VS STORAGE-DIRECT DATA SEQUENCE               │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ STEP A: Tool Interface ➔ Pure S3 Direct Authentication                                │
+│   • Tool contacts Pure S3 Gateway directly using Tenant Admin's S3 Access/Secret key.  │
+│   • Pure S3 validates AWS SigV4 signature & authenticates the Tenant Admin.            │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ STEP B: Tool Interface ➔ StorageGRID Direct Inventory Audit                           │
+│   • Tool contacts StorageGRID directly to list buckets, objects, tags & WORM policies.  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ STEP C: StorageGRID ➔ Pure S3 Direct Datacenter Payload Transfer                      │
+│   • Tool issues `CopyObject` directives instructing Pure S3 to pull payload bytes       │
+│   • (Or configures CloudMirror to push bytes) directly over 40 Gbps datacenter LAN.    │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Authentication (Tool ➔ Pure S3 Direct)**:
+   Authentication happens **directly between the tool interface and Pure Storage S3** the very first time. The tool signs an HTTP request using the Tenant Admin's Secret Access Key via AWS Signature V4 and sends it directly to Pure S3. Pure S3 validates the signature and authenticates the Tenant Admin.
+
+2. **Payload Transfer (StorageGRID ➔ Pure S3 Direct)**:
+   CloudMirror (or `CopyObject` S3 Server-Side Copy) is used **strictly for Data Plane Payload Transfer**—streaming the object payload bytes directly between storage nodes over the internal datacenter fabric so no data passes through the client browser.
+
 ---
 
-## 7. Automated Target Provisioning & Population Pipeline
+## 8. Production Execution Guarantee & API Command Mapping
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 
