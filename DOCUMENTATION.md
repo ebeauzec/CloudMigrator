@@ -125,7 +125,26 @@ Before running Pure-Grid StorageSync™, both source and destination cloud infra
 
 ---
 
-## 3. Comprehensive 3-Boundary Authentication Model
+## 3. Production Execution Guarantee & API Command Mapping
+
+Pure-Grid StorageSync™ guarantees that every step in the 5-step wizard invokes real, standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the source and destination endpoints:
+
+| Wizard Step & UI Action | Underlying API / Command Executed | Executing System | Production Result |
+| :--- | :--- | :--- | :--- |
+| **01. Validate Endpoints** | `ListBucketsCommand({})` | StorageGRID & Pure S3 | Verifies HTTP/S connectivity & network routing |
+| **01. Same-Key Pass-Through** | `POST /api/2.X/s3-users/keys` | Pure REST API | Registers exact source `access_key_id` & secret |
+| **02. Tenant Discovery** | `ListObjectsV2Command` + `GetBucketVersioning` | StorageGRID S3 API | Audits all buckets, object keys, sizes, WORM policies |
+| **02. Create Target Bucket** | `CreateBucketCommand` + `PutBucketVersioning` | Pure Storage S3 API | Provisions matching bucket & versioning status |
+| **03. Direct S3 Copy** | `CopyObjectCommand` / `UploadPartCopyCommand` | Pure Storage S3 Node | Target pulls payload directly from StorageGRID over LAN |
+| **03. CloudMirror Push** | `POST /api/v3/grid/cloud-mirror-endpoints` | StorageGRID Admin API | StorageGRID pushes objects over 40 Gbps LAN |
+| **04. Triple ETag Checksum** | `HeadObjectCommand` (Source vs Target) | StorageGRID & Pure S3 | Compares ETag hashes, byte size, user metadata |
+| **04. Auto-Repair Remediation**| Re-issued `CopyObjectCommand` | Pure Storage S3 Node | Overwrites discrepancy with verified source object |
+| **05. Read-Only Freeze** | `PutBucketPolicyCommand` (Deny PutObject) | StorageGRID S3 API | Freezes source tenant to prevent write drift |
+| **05. Cut-Over Probes** | `PutObjectCommand` + `GetObjectCommand` | Pure Storage S3 Node | Verifies post-cutover write/read operational status |
+
+---
+
+## 4. Comprehensive 3-Boundary Authentication Model
 
 Pure-Grid StorageSync defines three explicit authentication boundaries between the operator, the tool, and the cloud storage systems:
 

@@ -41,6 +41,23 @@ Open [index.html](file:///g:/My%20Drive/AntiGravity/CloudMigrator/index.html) di
 
 ---
 
+## ⚙️ Production API Command Mapping Guarantee
+
+Pure-Grid StorageSync™ invokes standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the endpoints:
+
+| Wizard Step & UI Action | Underlying API / Command Executed | Executing System | Production Result |
+| :--- | :--- | :--- | :--- |
+| **01. Validate Endpoints** | `ListBucketsCommand({})` | StorageGRID & Pure S3 | Verifies HTTP/S connectivity & network routing |
+| **01. Same-Key Pass-Through** | `POST /api/2.X/s3-users/keys` | Pure REST API | Registers exact source `access_key_id` & secret |
+| **02. Tenant Discovery** | `ListObjectsV2Command` + `GetBucketVersioning` | StorageGRID S3 API | Audits all buckets, object keys, sizes, WORM policies |
+| **02. Create Target Bucket** | `CreateBucketCommand` + `PutBucketVersioning` | Pure Storage S3 API | Provisions matching bucket & versioning status |
+| **03. Direct S3 Copy** | `CopyObjectCommand` / `UploadPartCopyCommand` | Pure Storage S3 Node | Target pulls payload directly from StorageGRID over LAN |
+| **04. Triple ETag Checksum** | `HeadObjectCommand` (Source vs Target) | StorageGRID & Pure S3 | Compares ETag hashes, byte size, user metadata |
+| **05. Read-Only Freeze** | `PutBucketPolicyCommand` (Deny PutObject) | StorageGRID S3 API | Freezes source tenant to prevent write drift |
+| **05. Cut-Over Probes** | `PutObjectCommand` + `GetObjectCommand` | Pure Storage S3 Node | Verifies post-cutover write/read operational status |
+
+---
+
 ## 🔒 3-Boundary Authentication Model
 
 ```
