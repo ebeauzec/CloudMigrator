@@ -197,17 +197,18 @@ router.post('/cutover/execute', async (req, res) => {
         forcePathStyle: true
       });
 
+      const probeBucket = (selectedBuckets && selectedBuckets.length > 0) ? selectedBuckets[0] : 'finance-records-2025';
       const testKey = `.cutover_probe_${Date.now()}`;
       const probeStart = Date.now();
 
       try {
-        await pureS3.send(new PutObjectCommand({ Bucket: 'finance-records-2025', Key: testKey, Body: 'probe' }));
-        await pureS3.send(new GetObjectCommand({ Bucket: 'finance-records-2025', Key: testKey }));
-        await pureS3.send(new DeleteObjectCommand({ Bucket: 'finance-records-2025', Key: testKey }));
+        await pureS3.send(new PutObjectCommand({ Bucket: probeBucket, Key: testKey, Body: 'probe' }));
+        await pureS3.send(new GetObjectCommand({ Bucket: probeBucket, Key: testKey }));
+        await pureS3.send(new DeleteObjectCommand({ Bucket: probeBucket, Key: testKey }));
 
         healthCheck.latencyMs = Date.now() - probeStart;
-        healthCheck.writeTest = `PASSED (Pure S3 Write Verified ${healthCheck.latencyMs}ms)`;
-        healthCheck.readTest = `PASSED (Pure S3 Read Verified ${healthCheck.latencyMs}ms)`;
+        healthCheck.writeTest = `PASSED (Pure S3 Write Verified ${healthCheck.latencyMs}ms on bucket ${probeBucket})`;
+        healthCheck.readTest = `PASSED (Pure S3 Read Verified ${healthCheck.latencyMs}ms on bucket ${probeBucket})`;
       } catch (probeErr) {
         healthCheck.writeTest = `FAILED (${probeErr.message})`;
         healthCheck.readTest = `FAILED (${probeErr.message})`;

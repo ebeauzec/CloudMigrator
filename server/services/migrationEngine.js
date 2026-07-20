@@ -3,8 +3,6 @@ import {
   ListObjectsV2Command, 
   GetObjectCommand,
   PutObjectCommand,
-  CopyObjectCommand, 
-  HeadObjectCommand,
   GetObjectTaggingCommand,
   PutObjectTaggingCommand,
   GetObjectRetentionCommand,
@@ -13,7 +11,6 @@ import {
   UploadPartCommand,
   CompleteMultipartUploadCommand
 } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { StorageGRIDService } from './storagegrid.js';
 import { PureS3Service } from './pureS3.js';
 
@@ -120,15 +117,15 @@ export class MigrationEngine {
       };
     });
 
-    // Launch production transfer loop
+    // Launch transfer loop
     this.runProductionTransferLoop(targetBuckets);
 
     return {
       success: true,
-      message: 'Datacenter S3 Migration Engine started successfully with live S3 Copy Workers.',
+      message: 'S3 Migration Engine started successfully with live S3 Workers.',
       status: this.status,
       buckets: targetBuckets.map(b => b.name),
-      dataFlowMode: 'High-Speed Memory Stream Piping & Multipart S3 Copy (Presigned S3 LAN Source)'
+      dataFlowMode: 'High-Speed Memory Stream Piping & Parallel Multipart Copy'
     };
   }
 
@@ -142,7 +139,7 @@ export class MigrationEngine {
       const bStatus = this.progress.bucketStatuses[bucketName];
 
       if (this.sourceS3 && this.destS3) {
-        // --- LIVE PRODUCTION AWS S3 SDK TRANSFER PATH ---
+        // --- LIVE AWS S3 SDK TRANSFER PATH ---
         try {
           let continuationToken = undefined;
           let isTruncated = true;
@@ -162,7 +159,7 @@ export class MigrationEngine {
               const objectSize = item.Size || 0;
 
               try {
-                // 1. DATA PAYLOAD TRANSFER (Handles >5GB multipart objects)
+                // 1. DATA PAYLOAD TRANSFER (Memory Stream Piping & Multipart >5GB)
                 if (objectSize > 5 * 1024 * 1024 * 1024) {
                   await this.executeLargeObjectMultipartTransfer(bucketName, objectKey, objectSize);
                 } else {
@@ -181,7 +178,7 @@ export class MigrationEngine {
                   }
                 } catch (tagErr) {}
 
-                // 3. OBJECT LOCK WORM RETENTION & LEGAL HOLD PARITY
+                // 3. OBJECT LOCK WORM RETENTION PARITY
                 try {
                   const retRes = await this.sourceS3.send(new GetObjectRetentionCommand({ Bucket: bucketName, Key: objectKey }));
                   if (retRes.Retention) {
@@ -234,29 +231,16 @@ export class MigrationEngine {
     this.isLoopRunning = false;
   }
 
+  // Direct High-Speed Memory Stream Piping (GetObject -> PutObject Body)
   async executeStandardObjectTransfer(bucketName, objectKey) {
-    try {
-      // Try Presigned CopySource URL
-      const getCmd = new GetObjectCommand({ Bucket: bucketName, Key: objectKey });
-      const presignedUrl = await getSignedUrl(this.sourceS3, getCmd, { expiresIn: 3600 });
-
-      await this.destS3.send(new CopyObjectCommand({
-        Bucket: bucketName,
-        Key: objectKey,
-        CopySource: presignedUrl,
-        MetadataDirective: 'COPY'
-      }));
-    } catch (err) {
-      // Memory Stream Piping Fallback (GetObject -> PutObject Body)
-      const srcObj = await this.sourceS3.send(new GetObjectCommand({ Bucket: bucketName, Key: objectKey }));
-      await this.destS3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: objectKey,
-        Body: srcObj.Body,
-        ContentType: srcObj.ContentType,
-        Metadata: srcObj.Metadata
-      }));
-    }
+    const srcObj = await this.sourceS3.send(new GetObjectCommand({ Bucket: bucketName, Key: objectKey }));
+    await this.destS3.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+      Body: srcObj.Body,
+      ContentType: srcObj.ContentType,
+      Metadata: srcObj.Metadata
+    }));
   }
 
   async executeLargeObjectMultipartTransfer(bucketName, objectKey, objectSize) {
@@ -362,7 +346,7 @@ export class MigrationEngine {
     this.status = 'PAUSED';
     this.progress.currentThroughputGbps = 0;
     this.progress.currentMBps = 0;
-    return { success: true, message: 'Migration paused cleanly. Session state saved.' };
+    return { success: true, message: 'Migration paused cleanly.' };
   }
 
   resetMigration() {

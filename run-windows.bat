@@ -2,18 +2,26 @@
 title Pure-Grid StorageSync Launcher
 cls
 echo =========================================================================
-echo  Pure-Grid StorageSync | StorageGRID to Pure S3 Direct Migration Tool
+echo  Pure-Grid StorageSync | StorageGRID to Pure S3 Migration Engine
 echo =========================================================================
 echo.
-echo [1/2] Verifying application environment...
+echo [1/2] Verifying application environment ^& dependencies...
+
+if not exist "%~dp0node_modules\" (
+    echo First-time launch: installing required dependencies via npm install...
+    cd /d "%~dp0"
+    call npm install --silent
+)
+
 echo [2/2] Launching Pure-Grid StorageSync engine...
 echo.
 
 where node >nul 2>nul
 if %errorlevel%==0 (
-    if exist "server\index.js" (
-        echo Starting Node.js S3 SDK Backend Server on port 3001...
+    if exist "%~dp0server\index.js" (
+        echo Starting Node.js S3 Engine on port 3001...
         start "" "http://localhost:3001"
+        cd /d "%~dp0"
         node server/index.js
         goto END
     )

@@ -372,9 +372,9 @@ Every wizard step in the backend services invokes AWS S3 SDK commands (`@aws-sdk
 3. **`api.js` Cut-Over Freeze**:
    - Executes `PutBucketPolicyCommand` against source StorageGRID buckets applying a `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
 
-## 10. Memory Stream Piping & Multipart S3 Transfer Architecture
+## 10. High-Speed Memory Stream Piping & Multipart S3 Transfer Architecture
 
-Cross-vendor migrations between distinct S3 services (StorageGRID ➔ Pure Storage S3) execute payload transfers via **High-Speed Node.js Memory Stream Piping (`GetObjectCommand` ➔ `PutObjectCommand`)** and **Multipart Parallel S3 Part Streaming**:
+Cross-vendor transfers between NetApp StorageGRID and Pure Storage FlashBlade execute via **High-Speed Node.js Memory Stream Piping (`GetObjectCommand` ➔ `PutObjectCommand`)** and **Parallel Multipart S3 Part Streaming**:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -391,7 +391,7 @@ Cross-vendor migrations between distinct S3 services (StorageGRID ➔ Pure Stora
 1. **Memory Stream Piping**:
    - `sourceS3.send(new GetObjectCommand(...)).Body` yields a Node.js `stream.Readable` object.
    - The stream is passed directly into `destS3.send(new PutObjectCommand({ Body: stream }))`.
-   - Payload bytes pass through Node's high-speed memory buffers without touching disk storage.
+   - Payload bytes pass through Node.js high-speed memory buffers without touching disk storage.
 
 2. **Large Object Multipart Transfer (> 5 GB)**:
    - For objects exceeding 5 GB, `migrationEngine.js` executes `CreateMultipartUploadCommand` on Pure S3.

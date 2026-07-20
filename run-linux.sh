@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 
 echo "========================================================================="
-echo " Pure-Grid StorageSync | StorageGRID to Pure S3 Direct Migration Tool"
+echo " Pure-Grid StorageSync | StorageGRID to Pure S3 Migration Engine"
 echo "========================================================================="
 echo ""
-echo "[1/2] Verifying application environment..."
-echo "[2/2] Launching Pure-Grid StorageSync engine..."
-echo ""
+echo "[1/2] Verifying application environment & dependencies..."
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
@@ -21,10 +19,18 @@ open_browser() {
     fi
 }
 
+# Auto-install node_modules if missing on fresh clone
+if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
+    echo "First-time launch: installing required dependencies..."
+    cd "$SCRIPT_DIR" && npm install --silent
+fi
+
+echo "[2/2] Launching Pure-Grid StorageSync engine..."
+
 # Prioritize Node.js Express backend server
 if command -v node >/dev/null 2>&1; then
     if [ -f "$SCRIPT_DIR/server/index.js" ]; then
-        echo "Starting Node.js S3 SDK Backend Server on port 3001..."
+        echo "Starting Node.js S3 Engine on port 3001..."
         (sleep 1 && open_browser "http://localhost:3001") &
         cd "$SCRIPT_DIR" && node server/index.js
         exit 0

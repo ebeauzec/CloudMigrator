@@ -2,8 +2,7 @@ import {
   S3Client, 
   ListBucketsCommand, 
   CreateBucketCommand, 
-  PutBucketVersioningCommand,
-  PutBucketTaggingCommand
+  PutBucketVersioningCommand
 } from '@aws-sdk/client-s3';
 
 export class PureS3Service {
@@ -46,7 +45,7 @@ export class PureS3Service {
     }
   }
 
-  // Provision Object Store Tenant Account & Import Exact Same S3 Access/Secret Key via Pure REST API
+  // Provision Object Store Tenant Account & Import Exact Same S3 Access/Secret Key via Pure FlashBlade REST 2.11 API
   async provisionNewCredentials({ accountName, userName, keyName, sourceAccessKey, sourceSecretKey }) {
     const targetAccessKey = sourceAccessKey || this.accessKeyId;
     const targetSecretKey = sourceSecretKey || this.secretAccessKey;
@@ -56,7 +55,7 @@ export class PureS3Service {
         const pureRestEndpoint = this.endpoint.replace(':8080', ':443').replace(/\/$/, '');
         
         // 1. Create Object Store Account via Pure REST API POST /api/2.11/object-store-accounts
-        await fetch(`${pureRestEndpoint}/api/2.11/object-store-accounts`, {
+        const acctRes = await fetch(`${pureRestEndpoint}/api/2.11/object-store-accounts`, {
           method: 'POST',
           headers: {
             'x-auth-token': this.pureAdminToken,
@@ -64,6 +63,11 @@ export class PureS3Service {
           },
           body: JSON.stringify({ name: accountName || 'GovCloud-Tenant' })
         });
+
+        if (!acctRes.ok && acctRes.status !== 409) {
+          const errText = await acctRes.text();
+          throw new Error(`Pure REST Account creation failed (${acctRes.status}): ${errText}`);
+        }
 
         // 2. Import Exact Source StorageGRID S3 Access/Secret Key Pair via Pure REST API POST /api/2.11/s3-users/keys
         const keyRes = await fetch(`${pureRestEndpoint}/api/2.11/s3-users/keys`, {
@@ -79,6 +83,12 @@ export class PureS3Service {
             secret_access_key: targetSecretKey
           })
         });
+
+        if (!keyRes.ok) {
+          const errText = await keyRes.text();
+          throw new Error(`Pure REST Key registration failed (${keyRes.status}): ${errText}`);
+        }
+
         const keyData = await keyRes.json();
 
         return {
@@ -96,7 +106,11 @@ export class PureS3Service {
         };
 
       } catch (err) {
-        console.warn('Pure REST Admin API call notice (falling back to S3 pass-through key):', err.message);
+        return {
+          success: false,
+          error: err.message,
+          message: `Pure FlashBlade REST Admin API Error: ${err.message}`
+        };
       }
     }
 
