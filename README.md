@@ -53,18 +53,14 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## 🔒 Delegated Multi-Tenant Self-Service & Zero-Trust Key Privacy
+## 🛡️ Sovereign GovCloud Zero-Trust Tenant Model
 
-**Zero-Trust Rule**: **Storage Admins NEVER have access to Tenant Secret Keys.**
+Designed for **Secure Government Cloud Providers (IL5/IL6 / FedRAMP High / Classified)**:
 
-1. **Strict Key Privacy**:
-   Tenant Managers enter their secret keys **strictly locally** inside their self-contained execution package (`index.html` or local desktop runner). Storage Admins never see, read, or handle tenant secret keys.
-2. **Zero Global Admin Access Required**:
-   Tenant Managers use **ONLY their own Tenant S3 Access & Secret Keys**. No StorageGRID Grid Admin or Pure FlashBlade Array Admin tokens are required.
-3. **Distribution Package**:
-   Service Providers simply send the standalone 1-click package (`run-windows.bat`, `./run-linux.sh`, or `index.html`) to the Tenant Manager.
-4. **100% Data Sovereignty**:
-   The tool operates strictly within the tenant's isolated bucket scope. Customer-Managed Keys (SSE-C / KMS) and metadata are preserved 100% bit-for-bit without exposing data to global admins or other tenants.
+1. **Sole Operator**: The **Tenant Admin (End-User)** is the **ONLY entity** who runs this tool from their secure workstation.
+2. **Zero Provider Involvement**: The Cloud Provider is **NOT involved, NOT notified, NOT given keys, and NOT asked to do anything**.
+3. **100% S3 Protocol Autonomy**: Driven purely via standard S3 tenant API keys (`AccessKeyId` + `SecretAccessKey`).
+4. **Data Sovereignty**: Secret keys and customer-managed encryption (SSE-C / KMS) remain 100% under tenant control.
 
 ---
 

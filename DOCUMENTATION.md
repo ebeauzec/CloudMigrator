@@ -200,9 +200,47 @@ Pure-Grid StorageSync™ solves this through a **Delegated Self-Service Multi-Te
    - Service Providers simply hand the standalone 1-click executable (`run-windows.bat` / `run-linux.sh` or standalone `index.html`) to the Tenant Manager.
    - The Tenant Manager opens the app locally on their machine, inputs their StorageGRID S3 key and target Pure S3 credentials, and executes the migration self-service!
 
+## 5. Sovereign GovCloud Zero-Trust Tenant-Autonomous Model
+
+In secure government cloud environments (FedRAMP High, IL5/IL6, Sovereign GovCloud):
+- **The Tenant Admin (Customer / End-User) is the ONLY entity allowed to run this tool.**
+- **The Cloud Provider has ZERO involvement, ZERO operational awareness, and ZERO key access.**
+- **Zero-Trust Principles are strictly enforced.**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   SOVEREIGN GOVCLOUD ZERO-TRUST TENANT ARCHITECTURE                    │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│   ┌────────────────────────┐      Direct S3 Copy      ┌────────────────────────────┐   │
+│   │ StorageGRID Gov Tenant │ ───────────────────────> │ Pure Storage S3 Gov Tenant │   │
+│   │ (Tenant S3 Keys ONLY)  │  (Zero Provider Knowledge│ (Target S3 Keys ONLY)      │   │
+│   └───────────▲────────────┘   Zero Provider Access)  └─────────────▲──────────────┘   │
+└───────────────│─────────────────────────────────────────────────────│──────────────────┘
+                │ Scope: Sovereign Tenant Buckets ONLY                │
+┌───────────────┴─────────────────────────────────────────────────────┴──────────────────┐
+│                   Tenant Admin Air-Gapped Workstation                                  │
+│            (Self-Contained Standalone App Run Directly by Tenant Admin)                │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Core Zero-Trust GovCloud Guarantees
+
+1. **100% Tenant Autonomous Execution**:
+   - The Tenant Admin drives the migration 100% autonomously from their own secure workstation using standard S3 API keys (`AccessKeyId` + `SecretAccessKey`).
+   - No Cloud Provider admin tokens, no out-of-band tickets, and no backend provider scripts are ever required or invoked.
+
+2. **Zero Cloud Provider Awareness**:
+   - The cloud provider is not notified and does not need to configure anything.
+   - The migration payload streams directly over internal S3 datacenter endpoints as standard encrypted S3 protocol traffic.
+
+3. **Complete Data & Key Isolation**:
+   - Secret keys are processed strictly in local browser memory or local executable process space on the Tenant Admin's machine.
+   - Key material is never transmitted to the cloud provider, never logged to disk, and never exposed outside the tenant admin's isolated context.
+
 ---
 
-## 5. Production Execution Guarantee & API Command Mapping
+## 6. Production Execution Guarantee & API Command Mapping
 
 Pure-Grid StorageSync™ guarantees that every step in the 5-step wizard invokes real, standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the source and destination endpoints:
 
