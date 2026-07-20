@@ -1,4 +1,4 @@
-# Pure-Grid StorageSync™ - Master Enterprise Technical Specification & Infrastructure Guide
+# Pure-Grid StorageSync™ - Technical Specification & Infrastructure Guide
 
 **Document Version**: 2.1.0-build.20260720  
 **Target Systems**: NetApp StorageGRID (Source) ➔ Pure Storage FlashBlade S3 (Destination)  

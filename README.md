@@ -1,4 +1,4 @@
-# Pure-Grid StorageSync™ - Master Enterprise Migration Engine (v2.1.0)
+# Pure-Grid StorageSync™ - Migration Engine (v3.0.0)
 
 [![Version](https://img.shields.io/badge/version-v2.1.0--build.20260720-emerald.svg)](file:///g:/My%20Drive/AntiGravity/CloudMigrator/VERSION)
 [![License](https://img.shields.io/badge/license-Proprietary-purple.svg)](file:///g:/My%20Drive/AntiGravity/CloudMigrator/LICENSE.md)
@@ -138,5 +138,5 @@ Pure-Grid StorageSync imports the **exact same Access Key ID and Secret Access K
 
 ## 📖 Complete Documentation & Legal License
 
-- **Master Enterprise Specification & Setup Guide**: [DOCUMENTATION.md](file:///g:/My%20Drive/AntiGravity/CloudMigrator/DOCUMENTATION.md)
+- **Technical Specification & Setup Guide**: [DOCUMENTATION.md](file:///g:/My%20Drive/AntiGravity/CloudMigrator/DOCUMENTATION.md)
 - **IP Protection & Indemnification Agreement**: [LICENSE.md](file:///g:/My%20Drive/AntiGravity/CloudMigrator/LICENSE.md)
