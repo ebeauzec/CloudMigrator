@@ -154,9 +154,50 @@ The tool accomplishes autonomous provisioning using a **Two-Tier Credential Boot
    Now that Pure Storage has registered the source S3 credentials in its S3 identity database, **Pure S3 trusts and accepts all S3 requests signed with that key**.
    When the tool issues `CopyObjectCommand` specifying `x-amz-copy-source: /source-bucket/object-key`, Pure S3 uses the presigned source authorization to fetch the object directly from StorageGRID over the 40 Gbps datacenter LAN.
 
+## 4. Delegated Multi-Tenant Self-Service & Data Sovereignty Architecture
+
+In enterprise or service provider multi-tenant environments, **Tenant Managers (customers/end-users)** do not have global Grid Admin or Pure FlashBlade Array Admin access, and **data sovereignty is the top priority**.
+
+Pure-Grid StorageSync™ solves this through a **Delegated Self-Service Multi-Tenant Model**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   DELEGATED MULTI-TENANT SELF-SERVICE ARCHITECTURE                      │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│   ┌────────────────────────┐      Direct S3 Copy      ┌────────────────────────────┐   │
+│   │ StorageGRID Tenant A   │ ───────────────────────> │ Pure Storage S3 Tenant A   │   │
+│   │ (Tenant A Keys ONLY)   │  (Zero Admin Creds Used) │ (Target S3 Key Delegated)  │   │
+│   └───────────▲────────────┘                          └─────────────▲──────────────┘   │
+└───────────────│─────────────────────────────────────────────────────│──────────────────┘
+                │ Scope: Tenant A Buckets ONLY                        │
+┌───────────────┴─────────────────────────────────────────────────────┴──────────────────┐
+│                   Tenant A Self-Service Migration Package                              │
+│              (Standalone Single File HTML / CLI executable given to Tenant)            │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Multi-Tenant Safeguards
+
+1. **Zero Global Admin Access Required**:
+   - Tenant Managers **do not need** StorageGRID Grid Admin or Pure FlashBlade Array Admin tokens.
+   - They operate strictly using their own **Tenant S3 Access & Secret Keys** (`s3:ListBucket`, `s3:GetObject`, `s3:PutObject`).
+
+2. **Strict Single-Tenant Scope & Boundary**:
+   - The tool restricts all S3 operations to the tenant manager's explicit bucket scope (`arn:aws:s3:::tenant-a-bucket/*`).
+   - Tenant A cannot list, discover, or access Tenant B's buckets or data payloads.
+
+3. **Client-Side Encryption (CSE) & Bit-Level Data Sovereignty**:
+   - Customer-Managed Keys (SSE-C / KMS) and custom `x-amz-meta-*` headers are preserved bit-for-bit during direct transfer.
+   - Unencrypted data payload is never exposed to external or global admin systems.
+
+4. **Self-Contained Distribution Package**:
+   - Service Providers simply hand the standalone 1-click executable (`run-windows.bat` / `run-linux.sh` or standalone `index.html`) to the Tenant Manager.
+   - The Tenant Manager opens the app locally on their machine, inputs their StorageGRID S3 key and target Pure S3 credentials, and executes the migration self-service!
+
 ---
 
-## 4. Production Execution Guarantee & API Command Mapping
+## 5. Production Execution Guarantee & API Command Mapping
 
 Pure-Grid StorageSync™ guarantees that every step in the 5-step wizard invokes real, standard AWS S3 SDK (`@aws-sdk/client-s3`) and Pure Storage REST API commands against the source and destination endpoints:
 
