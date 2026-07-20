@@ -81,6 +81,14 @@ Pure-Grid StorageSync™ invokes standard AWS S3 SDK (`@aws-sdk/client-s3`) and 
 | **05. Read-Only Freeze** | `PutBucketPolicyCommand` (Deny PutObject) | StorageGRID S3 API | Freezes source tenant to prevent write drift |
 | **05. Cut-Over Probes** | `PutObjectCommand` + `GetObjectCommand` | Pure Storage S3 Node | Verifies post-cutover write/read operational status |
 
+## 🔐 Federated S3 Identity Architecture (OIDC / STS)
+
+**Would Identity Federation resolve static Access & Secret Key mismatches? YES!**
+
+1. **Centralized Identity Provider (IdP)**: Both StorageGRID and Pure Storage FlashBlade trust a central enterprise/government IdP (Active Directory, Okta, Keycloak, PingFederate).
+2. **Zero Destination Key Creation**: Pure Storage automatically validates the Tenant Admin's federated token on the first API call—no local key creation required.
+3. **Temporary STS Credentials**: Replaces static keys with short-lived **AWS STS / OIDC tokens** (`s3:AssumeRoleWithWebIdentity`), enforcing Zero Trust compliance in FedRAMP High / IL5 / IL6 environments.
+
 ---
 
 ## 🔒 3-Boundary Authentication Model

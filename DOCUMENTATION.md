@@ -400,9 +400,50 @@ Pure-Grid StorageSync™ solves this via a **Dual Cross-Vendor Transfer Pipeline
    - If presigned CopySource URLs are restricted by cross-vendor proxy policies, the tool streams `sourceS3.send(new GetObjectCommand(...)).Body` directly into `destS3.send(new PutObjectCommand({ Body: stream }))` via Node.js `stream.Readable` piping.
    - Zero disk buffering, high-concurrency memory streaming at full LAN speed.
 
+## 11. Federated S3 Identity Architecture (OIDC / STS / Active Directory)
+
+A fundamental question in cross-cluster migrations is: **"Would Identity Federation resolve static Access & Secret Key mismatches between StorageGRID and Pure Storage?"**
+
+### **YES. Identity Federation completely solves cross-cluster key management.**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        FEDERATED S3 IDENTITY ARCHITECTURE                              │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│                    ┌────────────────────────────────────────┐                          │
+│                    │ Central Enterprise / Gov IdP           │                          │
+│                    │ (Active Directory / OIDC / Keycloak)   │                          │
+│                    └───────────────────▲────────────────────┘                          │
+│                                        │                                               │
+│                        Federated Auth  │  Federated Auth                               │
+│                   ┌────────────────────┴────────────────────┐                          │
+│                   │                                         │                          │
+│      ┌────────────┴────────────┐               ┌────────────┴────────────┐             │
+│      │ StorageGRID S3 Endpoint │               │ Pure Storage S3 Endpoint│             │
+│      │ (Trusts Central IdP)    │               │ (Trusts Central IdP)    │             │
+│      └─────────────────────────┘               └─────────────────────────┘             │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Advantages of S3 Identity Federation
+
+1. **Zero Key Provisioning on Destination**:
+   - Static S3 Access Keys (`SGAK_...`) are tied to a specific cluster's local identity DB.
+   - With Identity Federation, both StorageGRID and Pure Storage FlashBlade delegate user authentication to a central **Identity Provider (IdP)** (e.g., Active Directory, Okta, Keycloak, PingFederate).
+   - Pure Storage automatically validates the Tenant Admin's federated token on the very first API call—**zero pre-creation of local keys on Pure Storage required!**
+
+2. **Temporary STS Credentials**:
+   - Replaces long-lived static secret keys with short-lived **AWS Security Token Service (STS) / OIDC tokens** (`s3:AssumeRoleWithWebIdentity`).
+   - Ensures Zero Trust compliance in FedRAMP High / IL5 / IL6 classified environments.
+
+3. **Role-Based Cross-Cluster Access Control (RBAC)**:
+   - User identity, group memberships, and bucket policies are managed centrally in the enterprise IdP.
+   - When a tenant is granted migration rights in the IdP, both StorageGRID and Pure Storage enforce the exact same IAM permissions automatically.
+
 ---
 
-## 11. Production API Command Mapping Guarantee
+## 12. Production API Command Mapping Guarantee
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 
