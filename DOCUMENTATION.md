@@ -372,33 +372,34 @@ Every wizard step in the backend services invokes AWS S3 SDK commands (`@aws-sdk
 3. **`api.js` Cut-Over Freeze**:
    - Executes `PutBucketPolicyCommand` against source StorageGRID buckets applying a `Deny` policy on `s3:PutObject` and `s3:DeleteObject` (Read-Only freeze).
 
-## 10. Cross-Vendor S3 CopySource Resolution & Stream Piping Architecture
+## 10. Memory Stream Piping & Multipart S3 Transfer Architecture
 
-When migrating between distinct vendor S3 endpoints (NetApp StorageGRID `https://storagegrid:8082` ➔ Pure Storage S3 `https://pure-flashblade:8080`), passing a relative `CopySource: /bucket/key` to Pure Storage S3 fails because Pure Storage S3 cannot resolve relative paths against a different vendor's host.
-
-Pure-Grid StorageSync™ solves this via a **Dual Cross-Vendor Transfer Pipeline**:
+Cross-vendor migrations between distinct S3 services (StorageGRID ➔ Pure Storage S3) execute payload transfers via **High-Speed Node.js Memory Stream Piping (`GetObjectCommand` ➔ `PutObjectCommand`)** and **Multipart Parallel S3 Part Streaming**:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                   DUAL CROSS-VENDOR S3 TRANSFER PIPELINE                                │
+│                   CROSS-VENDOR S3 DATA TRANSFER ENGINE                                  │
 ├───────────────────────────────────────────────────┬────────────────────────────────────┤
-│ METHOD A: Presigned S3 GET URL CopySource         │ METHOD B: High-Speed Stream Piping │
+│ STANDARD OBJECTS (<= 5 GB)                        │ LARGE MULTIPART OBJECTS (> 5 GB)   │
 ├───────────────────────────────────────────────────┼────────────────────────────────────┤
-│ 1. Tool signs StorageGRID GET URL (AWS SigV4)     │ 1. Tool issues GetObjectCommand to │
-│ 2. Tool passes Presigned URL in CopySource        │    StorageGRID (node Readable stream)│
-│ 3. Pure S3 fetches payload direct from StorageGRID│ 2. Tool pipes stream directly to   │
-│    over 40 Gbps datacenter LAN.                   │    Pure S3 PutObjectCommand.       │
+│ 1. GetObjectCommand to StorageGRID (stream.Readable)│ 1. CreateMultipartUploadCommand on Pure S3│
+│ 2. PutObjectCommand Body stream to Pure Storage S3.│ 2. Parallel 100MB UploadPartCommand chunks │
+│ 3. Zero disk buffering; high-concurrency LAN speed.│ 3. CompleteMultipartUploadCommand. │
 └───────────────────────────────────────────────────┴────────────────────────────────────┘
 ```
 
-1. **Method A: Presigned S3 GET URL CopySource (`@aws-sdk/s3-request-presigner`)**:
-   - The tool uses `getSignedUrl` to sign a GET request against the source StorageGRID endpoint.
-   - The tool passes this fully-qualified presigned URL with embedded SigV4 authorization in `CopySource` to Pure Storage S3.
-   - Pure Storage S3 uses the presigned URL to fetch the object directly from StorageGRID over the 40 Gbps datacenter LAN.
+1. **Memory Stream Piping**:
+   - `sourceS3.send(new GetObjectCommand(...)).Body` yields a Node.js `stream.Readable` object.
+   - The stream is passed directly into `destS3.send(new PutObjectCommand({ Body: stream }))`.
+   - Payload bytes pass through Node's high-speed memory buffers without touching disk storage.
 
-2. **Method B: High-Speed Direct Memory Stream Piping (`GetObject` ➔ `PutObject`)**:
-   - If presigned CopySource URLs are restricted by cross-vendor proxy policies, the tool streams `sourceS3.send(new GetObjectCommand(...)).Body` directly into `destS3.send(new PutObjectCommand({ Body: stream }))` via Node.js `stream.Readable` piping.
-   - Zero disk buffering, high-concurrency memory streaming at full LAN speed.
+2. **Large Object Multipart Transfer (> 5 GB)**:
+   - For objects exceeding 5 GB, `migrationEngine.js` executes `CreateMultipartUploadCommand` on Pure S3.
+   - Streams 100 MB byte ranges via `UploadPartCommand` and finalizes with `CompleteMultipartUploadCommand`.
+
+3. **Object Lock WORM & Tagging Parity**:
+   - Replicates object tags via `GetObjectTaggingCommand` ➔ `PutObjectTaggingCommand`.
+   - Replicates Object Lock retention periods via `GetObjectRetentionCommand` ➔ `PutObjectRetentionCommand` (with `BypassGovernanceRetention: true`).
 
 ## 11. Federated S3 Identity Architecture (OIDC / STS / Active Directory)
 

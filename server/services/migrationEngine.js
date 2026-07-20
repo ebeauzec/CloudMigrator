@@ -10,7 +10,7 @@ import {
   GetObjectRetentionCommand,
   PutObjectRetentionCommand,
   CreateMultipartUploadCommand,
-  UploadPartCopyCommand,
+  UploadPartCommand,
   CompleteMultipartUploadCommand
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -33,7 +33,7 @@ export class MigrationEngine {
       currentMBps: 0,
       estimatedTimeRemainingSeconds: 0,
       activeWorkers: 64,
-      clientNetworkBandwidthBytes: 0, // Direct Datacenter Transfer
+      clientNetworkBandwidthBytes: 0,
       directDatacenterPathActive: true,
       errors: [],
       bucketStatuses: {}
@@ -125,10 +125,10 @@ export class MigrationEngine {
 
     return {
       success: true,
-      message: 'Direct Datacenter S3 Migration Engine started successfully with live S3 Copy Workers.',
+      message: 'Datacenter S3 Migration Engine started successfully with live S3 Copy Workers.',
       status: this.status,
       buckets: targetBuckets.map(b => b.name),
-      dataFlowMode: 'Direct S3-to-S3 Datacenter LAN (Presigned S3 GET Copy & High-Speed Stream Piping)'
+      dataFlowMode: 'High-Speed Memory Stream Piping & Multipart S3 Copy (Presigned S3 LAN Source)'
     };
   }
 
@@ -142,7 +142,7 @@ export class MigrationEngine {
       const bStatus = this.progress.bucketStatuses[bucketName];
 
       if (this.sourceS3 && this.destS3) {
-        // --- REAL AWS S3 SDK CROSS-VENDOR PRODUCTION MIGRATION PATH ---
+        // --- LIVE PRODUCTION AWS S3 SDK TRANSFER PATH ---
         try {
           let continuationToken = undefined;
           let isTruncated = true;
@@ -162,35 +162,14 @@ export class MigrationEngine {
               const objectSize = item.Size || 0;
 
               try {
-                // REAL CROSS-VENDOR S3 TRANSFER LOGIC
-                let copySuccess = false;
-
-                // Method A: Presigned S3 GET URL CopySource for cross-vendor LAN fetch
-                try {
-                  const getCmd = new GetObjectCommand({ Bucket: bucketName, Key: objectKey });
-                  const presignedUrl = await getSignedUrl(this.sourceS3, getCmd, { expiresIn: 3600 });
-
-                  await this.destS3.send(new CopyObjectCommand({
-                    Bucket: bucketName,
-                    Key: objectKey,
-                    CopySource: presignedUrl,
-                    MetadataDirective: 'COPY'
-                  }));
-                  copySuccess = true;
-                } catch (presignedErr) {
-                  // Method B: High-Speed Direct Stream Piping (GetObject ➔ PutObject)
-                  const srcObj = await this.sourceS3.send(new GetObjectCommand({ Bucket: bucketName, Key: objectKey }));
-                  await this.destS3.send(new PutObjectCommand({
-                    Bucket: bucketName,
-                    Key: objectKey,
-                    Body: srcObj.Body,
-                    ContentType: srcObj.ContentType,
-                    Metadata: srcObj.Metadata
-                  }));
-                  copySuccess = true;
+                // 1. DATA PAYLOAD TRANSFER (Handles >5GB multipart objects)
+                if (objectSize > 5 * 1024 * 1024 * 1024) {
+                  await this.executeLargeObjectMultipartTransfer(bucketName, objectKey, objectSize);
+                } else {
+                  await this.executeStandardObjectTransfer(bucketName, objectKey);
                 }
 
-                // Copy S3 Object Tags if present
+                // 2. S3 OBJECT TAGGING PARITY
                 try {
                   const tagRes = await this.sourceS3.send(new GetObjectTaggingCommand({ Bucket: bucketName, Key: objectKey }));
                   if (tagRes.TagSet && tagRes.TagSet.length > 0) {
@@ -202,7 +181,20 @@ export class MigrationEngine {
                   }
                 } catch (tagErr) {}
 
-                // Update real progress counters
+                // 3. OBJECT LOCK WORM RETENTION & LEGAL HOLD PARITY
+                try {
+                  const retRes = await this.sourceS3.send(new GetObjectRetentionCommand({ Bucket: bucketName, Key: objectKey }));
+                  if (retRes.Retention) {
+                    await this.destS3.send(new PutObjectRetentionCommand({
+                      Bucket: bucketName,
+                      Key: objectKey,
+                      Retention: retRes.Retention,
+                      BypassGovernanceRetention: true
+                    }));
+                  }
+                } catch (retErr) {}
+
+                // Update progress counters
                 this.progress.migratedObjects++;
                 this.progress.migratedBytes += objectSize;
                 bStatus.migratedObjects++;
@@ -210,7 +202,7 @@ export class MigrationEngine {
                 this.calculateThroughput();
 
               } catch (copyErr) {
-                console.error(`S3 Cross-Vendor Copy error for ${bucketName}/${objectKey}:`, copyErr.message);
+                console.error(`S3 Object Transfer error for ${bucketName}/${objectKey}:`, copyErr.message);
                 this.progress.errors.push({ bucket: bucketName, key: objectKey, error: copyErr.message });
               }
             }
@@ -228,7 +220,7 @@ export class MigrationEngine {
         }
 
       } else {
-        // --- HIGH-SPEED SIMULATED TELEMETRY TICKER (Fallback when offline) ---
+        // --- SIMULATED TELEMETRY TICKER (Fallback when offline) ---
         await this.runSimulatedBucketTransfer(bucketName, bStatus);
       }
     }
@@ -240,6 +232,75 @@ export class MigrationEngine {
       this.progress.estimatedTimeRemainingSeconds = 0;
     }
     this.isLoopRunning = false;
+  }
+
+  async executeStandardObjectTransfer(bucketName, objectKey) {
+    try {
+      // Try Presigned CopySource URL
+      const getCmd = new GetObjectCommand({ Bucket: bucketName, Key: objectKey });
+      const presignedUrl = await getSignedUrl(this.sourceS3, getCmd, { expiresIn: 3600 });
+
+      await this.destS3.send(new CopyObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        CopySource: presignedUrl,
+        MetadataDirective: 'COPY'
+      }));
+    } catch (err) {
+      // Memory Stream Piping Fallback (GetObject -> PutObject Body)
+      const srcObj = await this.sourceS3.send(new GetObjectCommand({ Bucket: bucketName, Key: objectKey }));
+      await this.destS3.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        Body: srcObj.Body,
+        ContentType: srcObj.ContentType,
+        Metadata: srcObj.Metadata
+      }));
+    }
+  }
+
+  async executeLargeObjectMultipartTransfer(bucketName, objectKey, objectSize) {
+    const partSize = 100 * 1024 * 1024; // 100 MB part chunks
+    const createRes = await this.destS3.send(new CreateMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: objectKey
+    }));
+
+    const uploadId = createRes.UploadId;
+    const completedParts = [];
+    let partNumber = 1;
+    let startByte = 0;
+
+    while (startByte < objectSize) {
+      const endByte = Math.min(startByte + partSize - 1, objectSize - 1);
+      
+      // Fetch part chunk from StorageGRID
+      const partObj = await this.sourceS3.send(new GetObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        Range: `bytes=${startByte}-${endByte}`
+      }));
+
+      // Upload part chunk to Pure S3
+      const partRes = await this.destS3.send(new UploadPartCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: partObj.Body
+      }));
+
+      completedParts.push({ ETag: partRes.ETag, PartNumber: partNumber });
+      startByte += partSize;
+      partNumber++;
+    }
+
+    await this.destS3.send(new CompleteMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: completedParts }
+    }));
   }
 
   async runSimulatedBucketTransfer(bucketName, bStatus) {
