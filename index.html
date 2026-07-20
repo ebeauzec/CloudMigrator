@@ -251,9 +251,11 @@
       <div style="display: flex; gap: 0.5rem; align-items: center;">
         <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="resetAllConfig()">Reset</button>
         <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="undoConfigChange()">Undo</button>
-        <div class="badge badge-emerald" style="padding: 0.5rem 0.75rem;">
+        
+        <!-- DYNAMIC MODE BADGE (PRODUCTION VS DEMO) -->
+        <div class="badge badge-amber" id="engine-mode-badge" style="padding: 0.5rem 0.75rem;">
           <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>
-          <span id="backend-status-lbl">Datacenter Direct LAN</span>
+          <span id="backend-status-lbl">MODE: DEMO SIMULATION</span>
         </div>
       </div>
     </div>
@@ -526,11 +528,25 @@
     let migInterval = null;
     let localMigBytes = 0;
     let localMigObjects = 0;
+    let currentEngineMode = 'DEMO'; // 'PRODUCTION' or 'DEMO'
     const totalBytes = 85420194850000;
     const totalObjects = 1489200;
 
-    // Detect express backend port vs standalone mode
     const API_BASE = window.location.port === '3001' ? '/api' : 'http://localhost:3001/api';
+
+    function setEngineModeUI(mode) {
+      currentEngineMode = mode;
+      const badge = document.getElementById('engine-mode-badge');
+      const lbl = document.getElementById('backend-status-lbl');
+
+      if (mode === 'PRODUCTION') {
+        badge.className = 'badge badge-emerald';
+        lbl.innerText = '🟢 PRODUCTION S3 SDK MODE';
+      } else {
+        badge.className = 'badge badge-amber';
+        lbl.innerText = '🟡 DEMO SIMULATION MODE';
+      }
+    }
 
     async function testAPIConnection() {
       const alertBox = document.getElementById('connect-alert');
@@ -557,21 +573,25 @@
         });
         const data = await res.json();
 
-        if (data.success) {
+        if (data.success && data.engineMode === 'PRODUCTION') {
+          setEngineModeUI('PRODUCTION');
           alertBox.style.background = 'rgba(16,185,129,0.15)';
           alertBox.style.border = '1px solid rgba(16,185,129,0.3)';
           alertBox.style.color = '#34d399';
           alertBox.innerText = '✔ ' + (data.source?.message || 'StorageGRID Connected') + ' | ' + (data.destination?.message || 'Pure S3 Connected');
         } else {
-          alertBox.style.background = 'rgba(244,63,94,0.15)';
-          alertBox.style.border = '1px solid rgba(244,63,94,0.3)';
-          alertBox.style.color = '#fb7185';
-          alertBox.innerText = '❌ Connection Error: ' + (data.error || 'Failed');
+          setEngineModeUI('DEMO');
+          alertBox.style.background = 'rgba(245,158,11,0.15)';
+          alertBox.style.border = '1px solid rgba(245,158,11,0.3)';
+          alertBox.style.color = '#fbbf24';
+          alertBox.innerText = '🟡 Running in Standalone Demonstration Mode. Live S3 endpoints unverified.';
         }
       } catch (err) {
-        alertBox.style.background = 'rgba(16,185,129,0.15)';
-        alertBox.style.color = '#34d399';
-        alertBox.innerText = '✔ Endpoints Configured & Ready';
+        setEngineModeUI('DEMO');
+        alertBox.style.background = 'rgba(245,158,11,0.15)';
+        alertBox.style.border = '1px solid rgba(245,158,11,0.3)';
+        alertBox.style.color = '#fbbf24';
+        alertBox.innerText = '🟡 Running in Standalone Demonstration Mode (Offline UI Runner).';
       }
     }
 
@@ -594,7 +614,6 @@
       const btn = document.getElementById('btn-start-mig');
       
       if (isMigRunning) {
-        // Pause migration
         isMigRunning = false;
         clearInterval(migInterval);
         migInterval = null;
@@ -604,7 +623,6 @@
           await fetch(API_BASE + '/migration/pause', { method: 'POST' });
         } catch (e) {}
       } else {
-        // Start migration
         isMigRunning = true;
         btn.innerText = 'Pause Migration';
         btn.className = 'btn btn-slate';
@@ -617,10 +635,12 @@
             body: JSON.stringify({})
           });
           const data = await res.json();
-          if (data.success) backendStarted = true;
+          if (data.success) {
+            backendStarted = true;
+            if (data.engineMode) setEngineModeUI(data.engineMode);
+          }
         } catch (e) {}
 
-        // Launch update loop (polls Express backend if active, or runs local ticker)
         migInterval = setInterval(() => {
           if (!isMigRunning) return;
 
@@ -668,6 +688,8 @@
       try {
         const res = await fetch(API_BASE + '/migration/status');
         const data = await res.json();
+
+        if (data.engineMode) setEngineModeUI(data.engineMode);
 
         document.getElementById('mig-gbps').innerText = (data.currentThroughputGbps || 0).toFixed(2) + ' Gbps';
         document.getElementById('mig-mbps').innerText = '(' + (data.currentMBps || 0) + ' MB/s Direct LAN)';

@@ -327,6 +327,7 @@ export class MigrationEngine {
       : '0.00';
 
     return {
+      engineMode: (this.sourceS3 && this.destS3) ? 'PRODUCTION' : 'DEMO',
       status: this.status,
       elapsedSeconds: Math.floor(elapsedSeconds),
       percentObjects: parseFloat(percentObjects),

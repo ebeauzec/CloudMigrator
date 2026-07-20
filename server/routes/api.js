@@ -27,12 +27,17 @@ router.post('/connect', async (req, res) => {
     const sourceTest = await sgService.testConnection();
     const destTest = await pureService.testConnection();
 
+    const isLiveProduction = sourceTest.success && destTest.success;
+
     res.json({
       success: true,
       datacenterLanConnected: true,
+      engineMode: isLiveProduction ? 'PRODUCTION' : 'DEMO',
       source: sourceTest,
       destination: destTest,
-      dataFlowMode: 'Direct Datacenter S3 Transfer (No Client Network Buffering)'
+      dataFlowMode: isLiveProduction 
+        ? 'LIVE AWS S3 SDK DIRECT DATACENTER TRANSFER' 
+        : 'STANDALONE DEMONSTRATION SIMULATION'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
