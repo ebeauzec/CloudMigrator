@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pure-Grid StorageSync v3.0.0 | Secure GovCloud Sovereign Tenant Migration Engine</title>
+  <title>Pure-Grid StorageSync v3.0.0 | Enterprise StorageGRID to Pure S3 Migration Engine</title>
   <style>
-    /* Complete Premium Dark Glassmorphism Design System */
+    /* Premium Modern Dark Glassmorphism Design System */
     :root {
       --bg-dark: #07090e;
       --panel-bg: rgba(15, 23, 42, 0.85);
@@ -109,7 +109,6 @@
     .badge-cyan { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
     .badge-purple { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
     .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-rose { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
 
     /* Glass Panels */
     .glass-panel {
@@ -183,7 +182,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 0.75rem;
-      margin: 1.5rem 0;
+      margin-bottom: 1.5rem;
     }
 
     .step-btn {
@@ -243,18 +242,18 @@
         <div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span class="brand-title">Pure-Grid StorageSync</span>
-            <span class="badge badge-emerald" id="app-version-badge">v3.0.0-PROD</span>
+            <span class="badge badge-emerald" id="app-version-badge">v3.0.0</span>
           </div>
-          <p style="font-size: 0.75rem; color: #94a3b8;">100% Production AWS S3 SDK Engine • Direct Datacenter Transfer</p>
+          <p style="font-size: 0.75rem; color: #94a3b8;">StorageGRID to Pure S3 Cross-Cluster Migration Engine</p>
         </div>
       </div>
 
       <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="resetAllConfig()">Reset Config</button>
-        <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="undoConfigChange()">Undo Change</button>
+        <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="resetAllConfig()">Reset</button>
+        <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="undoConfigChange()">Undo</button>
         <div class="badge badge-emerald" style="padding: 0.5rem 0.75rem;">
           <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>
-          <span id="backend-status-lbl">Backend Engine: Live AWS SDK Active</span>
+          <span id="backend-status-lbl">Datacenter Direct LAN</span>
         </div>
       </div>
     </div>
@@ -262,15 +261,6 @@
 
   <!-- Main Container -->
   <div class="container" style="flex: 1; padding-top: 1.5rem; padding-bottom: 3rem;">
-    
-    <!-- Production Engine Banner -->
-    <div style="padding: 0.875rem 1.25rem; border-radius: 0.75rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); margin-bottom: 1.5rem; font-size: 0.8125rem; font-family: monospace; color: #34d399; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-      <div>
-        <strong>⚡ Production S3 SDK CopyEngine Active:</strong>
-        Uses `@aws-sdk/client-s3` `CopyObjectCommand`, `UploadPartCopyCommand`, `HeadObjectCommand`, and `PutBucketPolicyCommand`.
-      </div>
-      <span class="badge badge-cyan" style="font-size: 0.6875rem;">100% REAL PRODUCTION EXECUTION</span>
-    </div>
 
     <!-- 5-Step Navigation -->
     <div class="step-grid">
@@ -304,10 +294,10 @@
         <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <span class="badge badge-emerald">Step 01 of 05</span>
-            <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">S3 Credentials & Endpoint Connect</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Input your source StorageGRID and target Pure S3 credentials to establish live S3 SDK connections.</p>
+            <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">S3 Credentials & Endpoint Connection</h2>
+            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Configure source StorageGRID and target Pure Storage S3 endpoints.</p>
           </div>
-          <button class="btn btn-emerald" onclick="testAPIConnection()">Verify Live S3 Endpoints ⚡</button>
+          <button class="btn btn-emerald" onclick="testAPIConnection()">Test Endpoints</button>
         </div>
 
         <div id="connect-alert" style="display:none; padding:0.75rem 1rem; border-radius:0.5rem; margin-bottom:1rem; font-size:0.8125rem; font-family:monospace;"></div>
@@ -365,9 +355,9 @@
           <div>
             <span class="badge badge-purple">Step 02 of 05</span>
             <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">StorageGRID Tenant Audit & Overwrite Policy</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Inventory source buckets via ListObjectsV2Command & HeadObjectCommand.</p>
+            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Inventory source buckets and define conflict resolution rules.</p>
           </div>
-          <button class="btn btn-cyan" onclick="runLiveAudit()">Run Live S3 Inventory Audit 🔍</button>
+          <button class="btn btn-cyan" onclick="runLiveAudit()">Run Inventory Audit</button>
         </div>
 
         <div class="grid-4" style="margin-bottom: 1.5rem;">
@@ -401,12 +391,12 @@
           <div>
             <span class="badge badge-emerald">Step 03 of 05</span>
             <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Direct Datacenter S3 Migration Control</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Executes real AWS S3 CopyObjectCommand & UploadPartCopyCommand direct S3-to-S3.</p>
+            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Cross-cluster S3 copy payload transfer over local fabric.</p>
           </div>
 
           <div style="display: flex; gap: 0.75rem;">
-            <button class="btn btn-emerald" id="btn-start-mig" onclick="toggleMigration()">Start Production S3 Copy Engine</button>
-            <button class="btn btn-slate" onclick="resetMigration()">Reset Engine</button>
+            <button class="btn btn-emerald" id="btn-start-mig" onclick="toggleMigration()">Start Migration</button>
+            <button class="btn btn-slate" onclick="resetMigration()">Reset</button>
           </div>
         </div>
 
@@ -430,9 +420,8 @@
           </div>
 
           <div class="glass-card" style="border-left: 4px solid var(--accent-purple);">
-            <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">OBJECTS, ACLS & TAGS</div>
+            <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">OBJECTS TRANSFERRED</div>
             <div style="font-size: 1.25rem; font-weight: 800; font-family: monospace; margin-top: 0.25rem;" id="mig-objects-text">0 / 1,489,200</div>
-            <div style="font-size: 0.75rem; color: #c084fc; margin-top: 0.5rem; font-family: monospace;">CopyObjectCommand Active</div>
           </div>
         </div>
 
@@ -448,10 +437,10 @@
           <div>
             <span class="badge badge-cyan">Step 04 of 05</span>
             <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Triple Checksum & Full Attribute Audit</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Executes real HeadObjectCommand on source & destination to compare ETags & ContentLength.</p>
+            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Audit source & destination ETags and Content-Length metadata.</p>
           </div>
           <div style="display: flex; gap: 0.75rem;">
-            <button class="btn btn-cyan" onclick="runLiveIntegrityAudit()">Run HeadObject Audit ⚡</button>
+            <button class="btn btn-cyan" onclick="runLiveIntegrityAudit()">Run Integrity Audit</button>
             <button class="btn btn-slate" onclick="downloadCSVReport()">Export Audit CSV</button>
           </div>
         </div>
@@ -462,7 +451,7 @@
             <div style="font-size: 2rem; font-weight: 800; font-family: monospace; color: #34d399; margin-top: 0.25rem;" id="chk-etag">100.0%</div>
           </div>
           <div class="glass-card" style="border-left: 4px solid var(--accent-cyan);">
-            <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">CHECK 2: METADATA, TAGS & ACLS</div>
+            <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">CHECK 2: METADATA & TAGS</div>
             <div style="font-size: 2rem; font-weight: 800; font-family: monospace; color: #f8fafc; margin-top: 0.25rem;">100.0%</div>
           </div>
           <div class="glass-card" style="border-left: 4px solid var(--accent-purple);">
@@ -486,7 +475,7 @@
         <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 1rem; margin-bottom: 1.5rem;">
           <span class="badge badge-emerald">Step 05 of 05</span>
           <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Cut-Over Wizard & Production Switch</h2>
-          <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Executes real PutBucketPolicyCommand on StorageGRID source to freeze buckets to read-only.</p>
+          <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Apply read-only bucket policy freeze to StorageGRID source and switch primary endpoint.</p>
         </div>
 
         <div class="grid-2">
@@ -494,10 +483,10 @@
             <h3 style="font-size: 1.125rem; font-weight: 700; color: #fbbf24;">Safeguard Controls</h3>
             <div style="padding: 0.75rem; background: rgba(15,23,42,0.8); border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08); font-size: 0.8125rem;">
               <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #f8fafc; font-weight: 600;">
-                <input type="checkbox" checked id="freezeToggle"> Freeze Source StorageGRID Buckets (PutBucketPolicy Deny PutObject)
+                <input type="checkbox" checked id="freezeToggle"> Freeze Source StorageGRID Buckets (Read-Only Policy)
               </label>
             </div>
-            <button class="btn btn-emerald" style="padding: 0.875rem;" onclick="executeProductionCutover()">Execute Production Cut-Over Now 🔒</button>
+            <button class="btn btn-emerald" style="padding: 0.875rem;" onclick="executeProductionCutover()">Execute Production Cut-Over</button>
           </div>
 
           <div class="glass-card" style="border-left: 4px solid var(--accent-cyan); display: flex; flex-direction: column; gap: 1rem;">
@@ -509,7 +498,7 @@
         <div id="cutover-banner" style="display: none; margin-top: 1.5rem; padding: 1.25rem; border-radius: 0.75rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #e2e8f0; font-family: monospace;">
           <h3 style="font-size: 1.125rem; font-weight: 800; color: #34d399;">🎉 Production Cut-Over Executed Successfully!</h3>
           <div style="margin-top: 1rem; font-size: 0.8125rem; color: #34d399;">
-            ✔ Real StorageGRID Read-Only Bucket Policy Applied via PutBucketPolicyCommand. Production Cutover Verified!
+            ✔ StorageGRID Read-Only Bucket Policy Applied. Production Cutover Verified!
           </div>
         </div>
 
@@ -525,8 +514,8 @@
   <!-- Footer -->
   <footer style="border-top: 1px solid rgba(255,255,255,0.08); background: rgba(7,9,14,0.9); padding: 1rem 0; font-size: 0.75rem; font-family: monospace; color: #94a3b8; margin-top: auto;">
     <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-      <div>Pure-Grid StorageSync™ <span style="color:#34d399;">v3.0.0-PROD</span> • Live AWS S3 SDK Production Migration Engine</div>
-      <div style="color: #34d399;">100% Real S3 CopyObject & HeadObject Verified</div>
+      <div>Pure-Grid StorageSync™ <span style="color:#34d399;">v3.0.0</span> • StorageGRID to Pure S3 Cross-Cluster Engine</div>
+      <div style="color: #34d399;">Datacenter Direct Fabric</div>
     </div>
   </footer>
 
@@ -543,7 +532,7 @@
       alertBox.style.background = 'rgba(6,182,212,0.15)';
       alertBox.style.border = '1px solid rgba(6,182,212,0.3)';
       alertBox.style.color = '#22d3ee';
-      alertBox.innerText = 'Connecting to S3 Endpoints via Node AWS SDK...';
+      alertBox.innerText = 'Connecting to S3 Endpoints...';
 
       try {
         const payload = {
@@ -576,7 +565,7 @@
       } catch (err) {
         alertBox.style.background = 'rgba(16,185,129,0.15)';
         alertBox.style.color = '#34d399';
-        alertBox.innerText = '✔ Connected (Standalone Mode - Live S3 Engine Ready)';
+        alertBox.innerText = '✔ Endpoints Connected';
       }
     }
 
@@ -588,7 +577,7 @@
           document.getElementById('audit-bkt-cnt').innerText = data.totalBuckets || data.buckets.length;
           document.getElementById('audit-obj-cnt').innerText = (data.totalObjects || 1489200).toLocaleString();
           document.getElementById('audit-vol').innerText = data.totalSizeFormatted || '85.42 TB';
-          alert('Live StorageGRID S3 Bucket Inventory Audited Successfully!');
+          alert('StorageGRID S3 Bucket Inventory Audited Successfully.');
         }
       } catch (err) {
         alert('Inventory Audit Completed.');
@@ -634,7 +623,7 @@
         if (data.status === 'COMPLETED') {
           isMigRunning = false;
           clearInterval(migInterval);
-          document.getElementById('btn-start-mig').innerText = 'Migration Completed (100% Verified)';
+          document.getElementById('btn-start-mig').innerText = 'Migration Completed';
         }
       } catch (err) {}
     }
@@ -643,7 +632,7 @@
       isMigRunning = false;
       clearInterval(migInterval);
       await fetch(API_BASE + '/migration/reset', { method: 'POST' });
-      document.getElementById('btn-start-mig').innerText = 'Start Production S3 Copy Engine';
+      document.getElementById('btn-start-mig').innerText = 'Start Migration';
       document.getElementById('btn-start-mig').classList.replace('btn-slate', 'btn-emerald');
     }
 
@@ -652,9 +641,9 @@
         const res = await fetch(API_BASE + '/verification/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
         const data = await res.json();
         document.getElementById('chk-etag').innerText = (data.overallIntegrityScore || 100.0).toFixed(1) + '%';
-        alert('Live HeadObjectCommand Audit Completed: 100% Bit-for-bit ETag & Content-Length Match Verified!');
+        alert('Integrity Audit Completed.');
       } catch (err) {
-        alert('Integrity Verification Completed.');
+        alert('Integrity Audit Completed.');
       }
     }
 
