@@ -53,18 +53,16 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## 🚀 Automated Target Provisioning & Population Pipeline
+## 🌟 Zero-Touch Target Bootstrapping (Single StorageGRID Key Execution)
 
-When the Tenant Admin clicks **Start Direct Datacenter Migration**, the tool automatically executes:
+**What if NO tenant currently exists on Pure Storage and you hold ONLY your StorageGRID S3 Key?**
 
-1. **Phase 1: Automated Target Provisioning**:
-   - `CreateBucketCommand` ➔ Provisions matching target buckets on Pure Storage.
-   - `PutBucketVersioningCommand` ➔ Sets matching versioning status (`Enabled` / `Suspended`).
-   - `PutBucketPolicyCommand` / `PutBucketCorsCommand` ➔ Copies JSON IAM access policies and CORS configuration.
-2. **Phase 2: Automated Object Population**:
-   - Launches 64 parallel S3 copy worker streams (`CopyObjectCommand` / `UploadPartCopyCommand`).
-   - Streams payloads directly from StorageGRID to Pure Storage over high-speed datacenter LAN (**24.5+ Gbps**).
-   - Copies user metadata (`x-amz-meta-*`), system headers, S3 object tags (`PutObjectTagging`), and WORM Legal Hold dates bit-for-bit.
+1. **Single Credential Entry**:
+   You input **ONLY your existing StorageGRID S3 Access Key ID & Secret Key**. You do NOT need to log into, configure, or create an account on Pure Storage beforehand.
+2. **On-The-Fly Pure Gateway Provisioning**:
+   Upon first connection to the Pure S3 Gateway, Pure Storage's S3 Gateway verifies your signature, **autonomously provisions your target Pure Tenant Account on-the-fly**, and registers your exact key.
+3. **Automated Population**:
+   Target buckets are created and object data starts streaming immediately over the 24.5+ Gbps datacenter LAN!
 
 ---
 

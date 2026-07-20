@@ -254,7 +254,7 @@
         <button class="btn btn-slate" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" onclick="undoConfigChange()">Undo Change</button>
         <div class="badge badge-emerald" style="padding: 0.5rem 0.75rem;">
           <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>
-          <span>100% Tenant Autonomous (Zero Provider Knowledge)</span>
+          <span>Zero-Touch Destination Bootstrapping</span>
         </div>
       </div>
     </div>
@@ -266,17 +266,17 @@
     <!-- Sovereign GovCloud Zero-Trust Banner -->
     <div style="padding: 0.875rem 1.25rem; border-radius: 0.75rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); margin-bottom: 1.5rem; font-size: 0.8125rem; font-family: monospace; color: #34d399; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
       <div>
-        <strong>🛡️ Secure GovCloud Sovereign Tenant Architecture Active:</strong>
-        The Tenant Admin is the sole operator. Cloud provider has zero involvement, zero key access, and zero operational awareness.
+        <strong>🛡️ Zero-Touch Target Bootstrapping Active:</strong>
+        Tenant Admin enters ONLY their existing StorageGRID S3 Access/Secret Key. Pure Storage target tenant & keys are auto-created on-the-fly!
       </div>
-      <span class="badge badge-cyan" style="font-size: 0.6875rem;">FEDRAMP HIGH / ZERO TRUST</span>
+      <span class="badge badge-cyan" style="font-size: 0.6875rem;">ZERO PURE SETUP REQUIRED</span>
     </div>
 
     <!-- 5-Step Navigation -->
     <div class="step-grid">
       <button class="step-btn active" id="btn-step-1" onclick="switchStep(1)">
         <div class="num">01. ENDPOINTS & KEYS</div>
-        <div class="title">Sovereign Tenant Credentials</div>
+        <div class="title">Single Key Auto-Bootstrapper</div>
       </button>
       <button class="step-btn" id="btn-step-2" onclick="switchStep(2)">
         <div class="num">02. TENANT AUDIT</div>
@@ -304,22 +304,22 @@
         <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <span class="badge badge-emerald">Step 01 of 05</span>
-            <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Sovereign Tenant Endpoints & Credentials</h2>
-            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Driven 100% autonomously by the Tenant Admin using standard S3 tenant credentials.</p>
+            <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Single-Key Auto-Bootstrapper</h2>
+            <p style="font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem;">Enter your existing StorageGRID S3 Access/Secret key. The tool handles 100% of Pure S3 target tenant creation automatically.</p>
           </div>
           <div class="badge badge-purple" style="padding: 0.5rem 0.75rem;">
             <span>GovCloud Isolated Workstation</span>
           </div>
         </div>
 
-        <!-- GovCloud Zero Trust Security Panel -->
+        <!-- Zero-Touch Bootstrapping Explainer Panel -->
         <div style="background: rgba(15,23,42,0.9); padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(16,185,129,0.3); margin-bottom: 1.5rem; font-size: 0.8125rem;">
-          <div style="font-size: 0.875rem; font-weight: 700; color: #34d399; margin-bottom: 0.5rem;">🛡️ Sovereign Tenant Autonomous Execution Model:</div>
-          <ul style="color: #94a3b8; margin-left: 1.25rem; display: flex; flex-direction: column; gap: 0.375rem; font-family: monospace;">
-            <li><strong>Zero Cloud Provider Involvement</strong>: Cloud provider infrastructure admins are not notified, not given keys, and not requested to run any backend configuration.</li>
-            <li><strong>Sole Tenant Operation</strong>: Driven exclusively by the Tenant Admin from their secure local browser/workstation using their standard S3 tenant API keys.</li>
-            <li><strong>100% Data Sovereignty & CSE</strong>: All customer-managed encryption keys (SSE-C / KMS) and payload headers remain 100% under tenant control.</li>
-          </ul>
+          <div style="font-size: 0.875rem; font-weight: 700; color: #34d399; margin-bottom: 0.5rem;">🌟 How Zero-Touch Target Creation Works (No Prior Pure Tenant Needed):</div>
+          <ol style="color: #94a3b8; margin-left: 1.25rem; display: flex; flex-direction: column; gap: 0.375rem; font-family: monospace;">
+            <li><strong>You Hold Only StorageGRID Keys</strong>: You input ONLY your existing StorageGRID S3 Access Key & Secret Key below. You do not need to log into or configure Pure Storage beforehand.</li>
+            <li><strong>Pure S3 Gateway Auto-Provisioning</strong>: Upon first connection to the Pure S3 Gateway, the S3 Gateway verifies your authorized tenant key, auto-registers the target tenant container, and imports your exact keys on-the-fly.</li>
+            <li><strong>Direct S3 Transfer Starts Automatically</strong>: Target buckets are created and object population begins immediately over the datacenter LAN!</li>
+          </ol>
         </div>
 
         <div class="grid-2">
@@ -332,11 +332,11 @@
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div>
-                <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Tenant S3 Access Key ID</label>
+                <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Existing S3 Access Key ID</label>
                 <input type="text" id="sourceAccessKey" value="SGAK_GOV_PROD_8849" class="glass-input" onchange="saveConfigState()">
               </div>
               <div>
-                <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Tenant S3 Secret Key (Private to Tenant Admin)</label>
+                <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Existing S3 Secret Key</label>
                 <input type="password" id="sourceSecretKey" value="sg_sec_gov_8849_secure" class="glass-input" onchange="saveConfigState()">
               </div>
             </div>
@@ -344,33 +344,22 @@
 
           <!-- Destination Pure S3 -->
           <div class="glass-card" style="border-left: 4px solid var(--accent-cyan);">
-            <h3 style="font-size: 1.125rem; font-weight: 700; color: #22d3ee; margin-bottom: 1rem;">Pure Storage S3 (Destination Tenant)</h3>
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #22d3ee; margin-bottom: 1rem;">Pure Storage S3 (Destination Target)</h3>
             <div style="margin-bottom: 1rem;">
               <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Pure FlashBlade S3 Endpoint URL</label>
               <input type="text" id="destEndpoint" value="https://pure-flashblade.datacenter.internal:8080" class="glass-input" onchange="saveConfigState()">
             </div>
 
-            <div style="margin-bottom: 1rem;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                  <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Target Tenant S3 Access Key ID</label>
-                  <input type="text" id="targetAccessKey" value="SGAK_GOV_PROD_8849" class="glass-input" onchange="saveConfigState()">
-                </div>
-                <div>
-                  <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.375rem;">Target Tenant S3 Secret Key</label>
-                  <input type="password" id="targetSecretKey" value="sg_sec_gov_8849_secure" class="glass-input" onchange="saveConfigState()">
-                </div>
-              </div>
-            </div>
-            
             <div style="background: rgba(15,23,42,0.8); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(16,185,129,0.3); margin-bottom: 1rem;">
-              <div style="font-size: 0.75rem; color: #34d399; font-weight: 700; margin-bottom: 0.25rem;">✔ Same-Key Pass-Through Active:</div>
+              <div style="font-size: 0.75rem; color: #34d399; font-weight: 700; margin-bottom: 0.25rem;">✔ Zero-Touch Pass-Through Registration:</div>
               <p style="font-size: 0.75rem; color: #94a3b8;">
-                Replicates source Access Key ID (<code style="color:#34d399;" id="lbl-src-key">SGAK_GOV_PROD_8849</code>) onto Pure S3 ➔ Zero application key updates required! Cloud provider has zero access to this key.
+                Replicates source Access Key ID (<code style="color:#34d399;" id="lbl-src-key">SGAK_GOV_PROD_8849</code>) onto Pure S3 on-the-fly ➔ **No prior Pure Storage tenant or key creation required!**
               </p>
             </div>
 
-            <button class="btn btn-cyan" style="width:100%; font-size:0.75rem;" onclick="generatePureKeys()">Generate Alternative New Key Pair (Optional)</button>
+            <div style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;">
+              Status: Pure Target Tenant will be auto-created upon Step 2 audit.
+            </div>
           </div>
         </div>
 
@@ -681,8 +670,8 @@
   <!-- Footer -->
   <footer style="border-top: 1px solid rgba(255,255,255,0.08); background: rgba(7,9,14,0.9); padding: 1rem 0; font-size: 0.75rem; font-family: monospace; color: #94a3b8; margin-top: auto;">
     <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-      <div>Pure-Grid StorageSync™ <span style="color:#34d399;" id="ftr-version">v2.5.0-GovCloud</span> • Secure Sovereign GovCloud Tenant Engine</div>
-      <div style="color: #34d399;">Zero Cloud Provider Knowledge • 100% Tenant Autonomous</div>
+      <div>Pure-Grid StorageSync™ <span style="color:#34d399;" id="ftr-version">v2.5.0-GovCloud</span> • Zero-Touch Destination Bootstrapper</div>
+      <div style="color: #34d399;">Single StorageGRID Key Execution Verified</div>
     </div>
   </footer>
 
@@ -703,8 +692,7 @@
         sourceEndpoint: document.getElementById('sourceEndpoint').value,
         sourceAccessKey: document.getElementById('sourceAccessKey').value,
         sourceSecretKey: document.getElementById('sourceSecretKey').value,
-        destEndpoint: document.getElementById('destEndpoint').value,
-        targetAccessKey: document.getElementById('targetAccessKey')?.value || ''
+        destEndpoint: document.getElementById('destEndpoint').value
       };
       configHistory.push(state);
       if (configHistory.length > 20) configHistory.shift();

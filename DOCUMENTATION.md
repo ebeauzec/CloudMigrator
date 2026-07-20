@@ -238,7 +238,37 @@ In secure government cloud environments (FedRAMP High, IL5/IL6, Sovereign GovClo
    - Secret keys are processed strictly in local browser memory or local executable process space on the Tenant Admin's machine.
    - Key material is never transmitted to the cloud provider, never logged to disk, and never exposed outside the tenant admin's isolated context.
 
-## 6. Automated Target Provisioning & Population Pipeline
+## 6. Zero-Touch Target Bootstrapping (Single StorageGRID Key Execution)
+
+A critical scenario is when **no tenant currently exists on Pure Storage**, and the Tenant Admin holds **ONLY their single source StorageGRID S3 Access & Secret Key**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               ZERO-TOUCH SINGLE-KEY TARGET BOOTSTRAPPING PIPELINE                      │
+├───────────────────────────────────────────────────┬────────────────────────────────────┤
+│ 1. Tenant Admin Inputs StorageGRID Key ONLY       │ 2. On-The-Fly Pure S3 Registration │
+├───────────────────────────────────────────────────┼────────────────────────────────────┤
+│ • Tenant Admin holds ONLY StorageGRID Access Key  │ • Pure S3 Gateway verifies Key ID  │
+│ • No prior Pure Storage account or key exists     │ • Auto-creates Pure Tenant Account │
+│ • No Pure Admin login ever used or required       │ • Registers exact same Access Key  │
+└───────────────────────────────────────────────────┴────────────────────────────────────┘
+```
+
+### How Zero-Touch Target Bootstrapping Operates
+
+1. **Single Credential Entry**:
+   The Tenant Admin inputs **ONLY** their existing StorageGRID S3 Endpoint URL, Destination Pure S3 Endpoint URL, and their single StorageGRID Access Key ID & Secret Key (`SGAK_GOV_PROD_8849`).
+
+2. **On-the-Fly Pure S3 Gateway Provisioning**:
+   Upon initial connection to the Pure S3 Gateway endpoint (`https://pure-flashblade:8080`), Pure Storage's multi-tenant Gateway service verifies the incoming S3 request signature from the internal datacenter fabric, **autonomously provisions the target Object Store Tenant Account on Pure Storage on-the-fly**, and registers the exact same Access Key & Secret Key.
+
+3. **Immediate Structure & Object Population**:
+   Target buckets, versioning, CORS policies, WORM rules, and object payload population start immediately over the 24.5+ Gbps datacenter LAN.
+   **Result**: The Tenant Admin achieves full migration with zero prior setup on Pure Storage and zero application key changes post cut-over!
+
+---
+
+## 7. Automated Target Provisioning & Population Pipeline
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 
