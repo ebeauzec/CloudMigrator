@@ -295,9 +295,43 @@ Here is the exact technical sequence:
 2. **Payload Transfer (StorageGRID ➔ Pure S3 Direct)**:
    CloudMirror (or `CopyObject` S3 Server-Side Copy) is used **strictly for Data Plane Payload Transfer**—streaming the object payload bytes directly between storage nodes over the internal datacenter fabric so no data passes through the client browser.
 
+## 8. Handling Unprovisioned Target Users (3 Enterprise Solutions for GovCloud Zero-Trust)
+
+A critical security question is: **"What if the S3 user does not exist on the Pure Storage array yet, the Tenant Admin holds only their StorageGRID key, and the Cloud Provider has zero involvement?"**
+
+Standard AWS Signature V4 requires the receiving S3 endpoint to hold or verify the Secret Access Key in order to validate the HMAC signature:
+$$ \text{Signature} = \text{HMAC-SHA256}(\text{SigningKey}, \text{StringToSign}) $$
+
+If the user does not exist on Pure Storage yet, Pure-Grid StorageSync™ supports **three standardized enterprise solutions**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│               3 ENTERPRISE SOLUTIONS FOR UNPROVISIONED TARGET USERS                    │
+├────────────────────────────────┬───────────────────────────────┬────────────────────────┤
+│ SOLUTION A: Pre-Allocated      │ SOLUTION B: Federated Identity│ SOLUTION C: Presigned  │
+│ Target Tenant S3 Key           │ Provider (IdP / LDAP / SAML)  │ S3 Pull Directive      │
+├────────────────────────────────┼───────────────────────────────┼────────────────────────┤
+│ Cloud subscription provides a  │ Both StorageGRID & Pure S3    │ Tool uses Target Pure  │
+│ target S3 key pair on Pure.    │ federate to central Gov IdP.  │ S3 Key & presigned     │
+│ Tool authenticates & populates.│ Pure S3 auto-validates key.   │ StorageGRID source URL.│
+└────────────────────────────────┴───────────────────────────────┴────────────────────────┘
+```
+
+### Solution A: Pre-Allocated Target S3 Credentials (Standard GovCloud Subscription)
+- When a government tenant is assigned space on Pure Storage, their cloud onboarding package includes their **Target Pure S3 Endpoint + Target Tenant S3 Access/Secret Key**.
+- The Tenant Admin enters both source and target keys in Step 1. The tool authenticates to Pure S3 using the target key, auto-creates all target buckets, and populates data direct from StorageGRID.
+
+### Solution B: Federated Identity Provider (Active Directory / LDAP / SAML / OIDC)
+- In FedRAMP High / IL5 / IL6 environments, both StorageGRID and Pure Storage FlashBlade federate S3 authentication against a central **Government Identity Provider (IdP)**.
+- Because Pure Storage queries the central IdP for key validation, **Pure S3 automatically recognizes and authenticates the Tenant Admin's key on the very first API call**, even if the user has never logged into Pure Storage before.
+
+### Solution C: Presigned S3 Cross-Copy Directive
+- The tool signs a StorageGRID GET request locally using the Tenant Admin's source key to create a **Presigned S3 Source URL**.
+- The tool passes this presigned URL in `x-amz-copy-source` to Pure S3. Pure Storage uses the presigned URL to fetch object bytes directly from StorageGRID over the 40 Gbps datacenter LAN.
+
 ---
 
-## 8. Production Execution Guarantee & API Command Mapping
+## 9. Production Execution Guarantee & API Command Mapping
 
 When the Tenant Admin launches Pure-Grid StorageSync™, the tool automatically handles target structure provisioning and object population in a seamless 2-phase pipeline:
 

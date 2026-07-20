@@ -53,14 +53,13 @@ The tool uses a **Two-Tier Credential Bootstrap Architecture**:
 2. **Tier 2 (S3 Data Plane Access)**:
    Pure Storage now trusts and accepts S3 requests signed with that key. Direct server-side S3 copying (`CopyObject`) streams payloads from StorageGRID to Pure S3 over the 40 Gbps datacenter LAN.
 
-## 🔑 Tool-Direct Authentication vs Storage-Direct Data Sequence
+## 🔑 Handling Unprovisioned Target Users (3 Enterprise Solutions)
 
-1. **Step A: Tool ➔ Pure S3 Direct Authentication**:
-   The tool interface connects **directly to Pure Storage S3 Gateway** using your Tenant Access/Secret key via AWS Signature V4 to authenticate and create target bucket containers.
-2. **Step B: Tool ➔ StorageGRID Direct Inventory Audit**:
-   The tool interface connects **directly to StorageGRID S3** to list buckets, inspect objects, read tags, and audit WORM retention.
-3. **Step C: StorageGRID ➔ Pure S3 Direct Payload Transfer**:
-   The tool issues server-side copy directives instructing Pure S3 to stream payload bytes directly from StorageGRID over the 40 Gbps datacenter LAN (or via CloudMirror push).
+What if the user does NOT exist on the Pure Storage array yet?
+
+1. **Solution A (Pre-Allocated Target S3 Key)**: The tenant onboarding package provides a target Pure S3 Access Key. The Tenant Admin enters both source & target keys in Step 1.
+2. **Solution B (Federated Gov IdP / Active Directory / SAML)**: Both StorageGRID and Pure Storage federate S3 key validation to a central Identity Provider (IdP). Pure S3 automatically validates the user on the first API call!
+3. **Solution C (Presigned S3 GET Copy Source)**: The tool generates a presigned StorageGRID URL and passes it in `x-amz-copy-source` to Pure S3.
 
 ---
 
