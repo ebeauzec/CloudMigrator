@@ -7,7 +7,7 @@ import {
   GetBucketVersioningCommand,
   GetBucketCorsCommand,
   GetBucketPolicyCommand,
-  GetBucketObjectLockConfigurationCommand
+  GetObjectLockConfigurationCommand
 } from '@aws-sdk/client-s3';
 
 export class StorageGRIDService {
@@ -98,7 +98,7 @@ export class StorageGRIDService {
         let objectLockEnabled = false;
         let compliancePolicy = 'None';
         try {
-          const lockRes = await this.s3Client.send(new GetBucketObjectLockConfigurationCommand({ Bucket: bucketName }));
+          const lockRes = await this.s3Client.send(new GetObjectLockConfigurationCommand({ Bucket: bucketName }));
           if (lockRes.ObjectLockConfiguration && lockRes.ObjectLockConfiguration.ObjectLockEnabled === 'Enabled') {
             objectLockEnabled = true;
             const rule = lockRes.ObjectLockConfiguration.Rule;

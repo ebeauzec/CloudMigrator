@@ -1,0 +1,21 @@
+# Dependencies (auto-installed on first run)
+node_modules/
+
+# Portable Node.js runtime (auto-downloaded on first run)
+runtime/
+
+# Build output
+dist/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local

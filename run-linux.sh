@@ -1,12 +1,40 @@
 #!/usr/bin/env bash
 
 echo "========================================================================="
-echo " Pure-Grid StorageSync | StorageGRID to Pure S3 Migration Engine"
+echo "  Pure-Grid StorageSync - Portable Self-Contained Launcher"
+echo "  StorageGRID to Pure S3 Cross-Cluster Migration Engine v3.1.0"
 echo "========================================================================="
 echo ""
-echo "[1/2] Verifying application environment & dependencies..."
 
+# -----------------------------------------------------------------------
+# CONFIGURATION
+# -----------------------------------------------------------------------
+NODE_VER="v24.18.0"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+RUNTIME_DIR="$SCRIPT_DIR/runtime"
+
+# Detect OS and architecture
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$OS" in
+    Linux*)   NODE_OS="linux" ;;
+    Darwin*)  NODE_OS="darwin" ;;
+    *)        NODE_OS="linux" ;;
+esac
+
+case "$ARCH" in
+    x86_64)   NODE_ARCH="x64" ;;
+    aarch64)  NODE_ARCH="arm64" ;;
+    arm64)    NODE_ARCH="arm64" ;;
+    *)        NODE_ARCH="x64" ;;
+esac
+
+NODE_DIST="node-${NODE_VER}-${NODE_OS}-${NODE_ARCH}"
+NODE_TAR="${NODE_DIST}.tar.xz"
+NODE_URL="https://nodejs.org/dist/${NODE_VER}/${NODE_TAR}"
+NODE_EXE="$RUNTIME_DIR/$NODE_DIST/bin/node"
+NPM_CMD="$RUNTIME_DIR/$NODE_DIST/bin/npm"
 
 open_browser() {
     URL="$1"
@@ -19,43 +47,81 @@ open_browser() {
     fi
 }
 
-# Auto-install node_modules if missing on fresh clone
-if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
-    if command -v npm >/dev/null 2>&1; then
-        echo "First-time launch: installing required dependencies..."
-        cd "$SCRIPT_DIR" && npm install --silent
+# -----------------------------------------------------------------------
+# STEP 1: Locate or download Node.js portable runtime
+# -----------------------------------------------------------------------
+echo "[Step 1 of 3] Checking for Node.js runtime..."
+
+if [ -x "$NODE_EXE" ]; then
+    echo "  Using bundled portable Node.js: $NODE_EXE"
+elif command -v node >/dev/null 2>&1; then
+    NODE_EXE="node"
+    NPM_CMD="npm"
+    echo "  Using system-installed Node.js."
+else
+    echo ""
+    echo "  Node.js not found on this system."
+    echo "  Downloading portable Node.js ${NODE_VER} LTS runtime..."
+    echo "  Source: ${NODE_URL}"
+    echo ""
+
+    mkdir -p "$RUNTIME_DIR"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fSL "$NODE_URL" -o "$RUNTIME_DIR/$NODE_TAR"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$NODE_URL" -O "$RUNTIME_DIR/$NODE_TAR"
     else
-        echo "NOTE: npm is not detected in your PATH. Skipping dependency installation."
+        echo "  ERROR: Neither curl nor wget found. Cannot download Node.js."
+        echo "  Please install Node.js manually from https://nodejs.org"
+        exit 1
     fi
+
+    if [ ! -f "$RUNTIME_DIR/$NODE_TAR" ]; then
+        echo "  ERROR: Download failed."
+        exit 1
+    fi
+
+    echo "  Extracting portable runtime..."
+    tar -xf "$RUNTIME_DIR/$NODE_TAR" -C "$RUNTIME_DIR"
+    rm -f "$RUNTIME_DIR/$NODE_TAR"
+
+    if [ ! -x "$NODE_EXE" ]; then
+        echo "  ERROR: Extraction failed. Node.js binary not found at $NODE_EXE"
+        exit 1
+    fi
+
+    echo "  Using bundled portable Node.js: $NODE_EXE"
 fi
 
-echo "[2/2] Launching Pure-Grid StorageSync engine..."
+# -----------------------------------------------------------------------
+# STEP 2: Install npm dependencies if missing
+# -----------------------------------------------------------------------
+echo ""
+echo "[Step 2 of 3] Checking npm dependencies..."
 
-# Prioritize Node.js Express backend server
-if command -v node >/dev/null 2>&1; then
-    if [ -f "$SCRIPT_DIR/server/index.js" ]; then
-        echo "Starting Node.js S3 Engine on port 3001..."
-        (sleep 1 && open_browser "http://localhost:3001") &
-        cd "$SCRIPT_DIR" && node server/index.js
-        if [ $? -eq 0 ]; then
-            exit 0
-        fi
-        echo "WARNING: Node.js server failed to start (port 3001 may be in use)."
-    fi
-fi
-
-if command -v python3 >/dev/null 2>&1; then
-    echo "Starting local web server on port 3000..."
-    (sleep 1 && open_browser "http://localhost:3000") &
-    cd "$SCRIPT_DIR" && python3 -m http.server 3000 --bind 127.0.0.1
+if [ ! -d "$SCRIPT_DIR/node_modules/express" ]; then
+    echo "  Installing npm packages... please wait."
+    cd "$SCRIPT_DIR" && "$NPM_CMD" install --production
     if [ $? -ne 0 ]; then
-        echo "WARNING: Failed to start web server on port 3000. Trying fallback port 8000..."
-        (sleep 1 && open_browser "http://localhost:8000") &
-        cd "$SCRIPT_DIR" && python3 -m http.server 8000 --bind 127.0.0.1
+        echo "  ERROR: npm install failed. Check your network connection."
+        exit 1
     fi
-    exit 0
+else
+    echo "  Dependencies ready."
 fi
 
-echo "Opening standalone single-file web app directly..."
-open_browser "$SCRIPT_DIR/index.html"
-echo "Pure-Grid StorageSync launched!"
+# -----------------------------------------------------------------------
+# STEP 3: Launch the Node.js backend server
+# -----------------------------------------------------------------------
+echo ""
+echo "[Step 3 of 3] Starting Migration Engine..."
+echo ""
+echo "  ============================================="
+echo "   Server running at http://localhost:3001"
+echo "   Press Ctrl+C to stop the server"
+echo "  ============================================="
+echo ""
+
+(sleep 2 && open_browser "http://localhost:3001") &
+cd "$SCRIPT_DIR" && "$NODE_EXE" server/index.js
