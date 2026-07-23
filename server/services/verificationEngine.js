@@ -3,7 +3,8 @@ import {
   HeadObjectCommand, 
   ListObjectsV2Command, 
   GetObjectTaggingCommand,
-  GetObjectRetentionCommand 
+  GetObjectRetentionCommand,
+  ListBucketsCommand
 } from '@aws-sdk/client-s3';
 
 export class VerificationEngine {
@@ -31,13 +32,26 @@ export class VerificationEngine {
       });
     }
 
-    const bucketList = buckets || [
-      'finance-records-2025',
-      'medical-imaging-archive',
-      'analytics-raw-telemetry',
-      'app-backups-immutable',
-      'corporate-media-assets'
-    ];
+    let bucketList = buckets;
+    if (!bucketList || bucketList.length === 0) {
+      if (sourceS3) {
+        try {
+          const bucketsRes = await sourceS3.send(new ListBucketsCommand({}));
+          bucketList = (bucketsRes.Buckets || []).map(b => b.Name);
+        } catch (e) {
+          console.warn('Failed to list source buckets for audit, falling back:', e.message);
+        }
+      }
+    }
+    if (!bucketList || bucketList.length === 0) {
+      bucketList = [
+        'finance-records-2025',
+        'medical-imaging-archive',
+        'analytics-raw-telemetry',
+        'app-backups-immutable',
+        'corporate-media-assets'
+      ];
+    }
 
     let totalObjectsAudited = 0;
     let verifiedETagMatches = 0;

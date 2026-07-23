@@ -147,6 +147,24 @@ router.post('/cutover/execute', async (req, res) => {
     let freezeSuccess = true;
     let freezeErrors = [];
 
+    let bucketList = selectedBuckets;
+    if (!bucketList || bucketList.length === 0) {
+      if (currentSourceConfig && currentSourceConfig.endpoint && currentSourceConfig.accessKeyId) {
+        try {
+          const sgService = new StorageGRIDService(currentSourceConfig);
+          const inventory = await sgService.getTenantInventory();
+          if (inventory && inventory.buckets) {
+            bucketList = inventory.buckets.map(b => b.name);
+          }
+        } catch (e) {
+          console.warn('Failed to retrieve inventory for cutover, falling back:', e.message);
+        }
+      }
+    }
+    if (!bucketList || bucketList.length === 0) {
+      bucketList = ['finance-records-2025', 'medical-imaging-archive', 'analytics-raw-telemetry', 'app-backups-immutable', 'corporate-media-assets'];
+    }
+
     if (freezeSource && currentSourceConfig && currentSourceConfig.endpoint && currentSourceConfig.accessKeyId) {
       // Execute S3 PutBucketPolicyCommand against StorageGRID to enforce Read-Only Freeze
       const sgS3 = new S3Client({
@@ -155,8 +173,6 @@ router.post('/cutover/execute', async (req, res) => {
         credentials: { accessKeyId: currentSourceConfig.accessKeyId, secretAccessKey: currentSourceConfig.secretAccessKey },
         forcePathStyle: true
       });
-
-      const bucketList = selectedBuckets || ['finance-records-2025', 'medical-imaging-archive', 'analytics-raw-telemetry', 'app-backups-immutable', 'corporate-media-assets'];
 
       for (const bucketName of bucketList) {
         const readOnlyPolicy = JSON.stringify({
@@ -197,7 +213,7 @@ router.post('/cutover/execute', async (req, res) => {
         forcePathStyle: true
       });
 
-      const probeBucket = (selectedBuckets && selectedBuckets.length > 0) ? selectedBuckets[0] : 'finance-records-2025';
+      const probeBucket = (bucketList && bucketList.length > 0) ? bucketList[0] : 'finance-records-2025';
       const testKey = `.cutover_probe_${Date.now()}`;
       const probeStart = Date.now();
 

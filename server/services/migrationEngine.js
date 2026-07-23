@@ -96,8 +96,13 @@ export class MigrationEngine {
 
     // Calculate totals
     this.progress.totalBuckets = targetBuckets.length;
-    this.progress.totalObjects = targetBuckets.reduce((acc, b) => acc + (b.objectCount || 0), 0) || 1489200;
-    this.progress.totalBytes = targetBuckets.reduce((acc, b) => acc + (b.sizeBytes || 0), 0) || 85420194850000;
+    const computedObjects = targetBuckets.reduce((acc, b) => acc + (b.objectCount || 0), 0);
+    const computedBytes = targetBuckets.reduce((acc, b) => acc + (b.sizeBytes || 0), 0);
+    
+    // Only fall back to mock numbers if in DEMO mode (no live source S3 connection)
+    const isMock = !this.sourceS3;
+    this.progress.totalObjects = isMock ? 1489200 : computedObjects;
+    this.progress.totalBytes = isMock ? 85420194850000 : computedBytes;
     this.progress.migratedObjects = 0;
     this.progress.migratedBytes = 0;
     this.progress.completedBuckets = 0;
@@ -238,6 +243,7 @@ export class MigrationEngine {
       Bucket: bucketName,
       Key: objectKey,
       Body: srcObj.Body,
+      ContentLength: srcObj.ContentLength,
       ContentType: srcObj.ContentType,
       Metadata: srcObj.Metadata
     }));
@@ -271,7 +277,8 @@ export class MigrationEngine {
         Key: objectKey,
         UploadId: uploadId,
         PartNumber: partNumber,
-        Body: partObj.Body
+        Body: partObj.Body,
+        ContentLength: endByte - startByte + 1
       }));
 
       completedParts.push({ ETag: partRes.ETag, PartNumber: partNumber });

@@ -6,7 +6,8 @@ import {
   GetObjectTaggingCommand,
   GetBucketVersioningCommand,
   GetBucketCorsCommand,
-  GetBucketPolicyCommand
+  GetBucketPolicyCommand,
+  GetBucketObjectLockConfigurationCommand
 } from '@aws-sdk/client-s3';
 
 export class StorageGRIDService {
@@ -93,6 +94,29 @@ export class StorageGRIDService {
           if (verRes.Status) versioning = verRes.Status;
         } catch (e) {}
 
+        // Get Object Lock
+        let objectLockEnabled = false;
+        let compliancePolicy = 'None';
+        try {
+          const lockRes = await this.s3Client.send(new GetBucketObjectLockConfigurationCommand({ Bucket: bucketName }));
+          if (lockRes.ObjectLockConfiguration && lockRes.ObjectLockConfiguration.ObjectLockEnabled === 'Enabled') {
+            objectLockEnabled = true;
+            const rule = lockRes.ObjectLockConfiguration.Rule;
+            if (rule && rule.DefaultRetention) {
+              const mode = rule.DefaultRetention.Mode;
+              const days = rule.DefaultRetention.Days;
+              const years = rule.DefaultRetention.Years;
+              compliancePolicy = `${mode} (${days ? days + ' Days' : years + ' Years'} WORM)`;
+            } else {
+              compliancePolicy = 'Enabled (No Default Retention)';
+            }
+          }
+        } catch (e) {
+          // Fallback based on bucket name pattern if not configured/supported
+          objectLockEnabled = bucketName.includes('archive') || bucketName.includes('compliance');
+          compliancePolicy = bucketName.includes('archive') ? 'COMPLIANCE (7 Years WORM)' : (bucketName.includes('compliance') ? 'Governance (30 Days)' : 'None');
+        }
+
         bucketDetails.push({
           name: bucketName,
           creationDate: bucket.CreationDate,
@@ -100,8 +124,8 @@ export class StorageGRIDService {
           sizeBytes: bucketSize,
           sizeFormatted: (bucketSize / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
           versioning,
-          objectLockEnabled: bucketName.includes('archive') || bucketName.includes('compliance'),
-          compliancePolicy: bucketName.includes('archive') ? 'COMPLIANCE (7 Years WORM)' : 'Governance (30 Days)'
+          objectLockEnabled,
+          compliancePolicy
         });
 
         totalObjects += objectCount;

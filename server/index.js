@@ -25,11 +25,22 @@ app.get('/health', (req, res) => {
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
+// Fallback static route for the root directory (to serve root index.html)
+const rootPath = path.join(__dirname, '..');
+app.use(express.static(rootPath));
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API endpoint not found' });
+  
+  // Try serving from dist/index.html first (Vite/React bundle)
   res.sendFile(path.join(distPath, 'index.html'), (err) => {
     if (err) {
-      res.status(200).send('Pure-Grid StorageSync Backend API Running. Start Vite frontend on http://localhost:5173');
+      // Fall back to serving the root index.html (standalone single-page HTML frontend)
+      res.sendFile(path.join(rootPath, 'index.html'), (fallbackErr) => {
+        if (fallbackErr) {
+          res.status(500).send('Pure-Grid StorageSync frontend assets not found.');
+        }
+      });
     }
   });
 });
