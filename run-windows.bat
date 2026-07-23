@@ -2,10 +2,10 @@
 title Pure-Grid StorageSync Launcher
 cls
 echo =========================================================================
-echo  Pure-Grid StorageSync | StorageGRID to Pure S3 Migration Engine
+echo  Pure-Grid StorageSync - StorageGRID to Pure S3 Migration Engine
 echo =========================================================================
 echo.
-echo [1/2] Verifying application environment ^& dependencies...
+echo [1/2] Verifying application environment and dependencies...
 
 :: Check npm and node_modules
 where npm >nul 2>nul
@@ -30,11 +30,7 @@ echo Starting Node.js S3 Engine on port 3001...
 start "" "http://localhost:3001"
 cd /d "%~dp0"
 node server/index.js
-if errorlevel 1 (
-    echo WARNING: Node.js server failed to start. Port 3001 may be in use.
-) else (
-    goto END
-)
+goto END
 
 :TRY_PYTHON
 :: Check Python and serve
@@ -43,20 +39,8 @@ if errorlevel 1 goto FALLBACK_DIRECT
 
 echo Starting local web server on port 3000...
 start "" "http://localhost:3000"
+cd /d "%~dp0"
 python -m http.server 3000 --bind 127.0.0.1
-if errorlevel 1 goto TRY_PYTHON_FALLBACK
-goto END
-
-:TRY_PYTHON_FALLBACK
-echo.
-echo WARNING: Failed to start web server on port 3000. Port may be in use.
-echo Attempting to start on fallback port 8000...
-start "" "http://localhost:8000"
-python -m http.server 8000 --bind 127.0.0.1
-if errorlevel 1 (
-    echo ERROR: Failed to start server on fallback ports.
-    goto FALLBACK_DIRECT
-)
 goto END
 
 :FALLBACK_DIRECT
